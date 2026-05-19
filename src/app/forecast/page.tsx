@@ -1,0 +1,13 @@
+import { ExtendedForecastOverview } from "@/components/ocean/activity-forecast";
+import { OceanAppShell } from "@/components/ocean/shell";
+import { getOceanIntelligence } from "@/lib/ocean";
+
+export default async function ForecastPage() {
+  const { snapshot, score } = await getOceanIntelligence();
+
+  return (
+    <OceanAppShell active="/forecast" marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
+      <ExtendedForecastOverview snapshot={snapshot} score={score} />
+    </OceanAppShell>
+  );
+}

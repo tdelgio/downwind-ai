@@ -1,0 +1,155 @@
+import { mockForecastWindows } from "./mock-data";
+import { degreesToCardinal } from "./ndbc";
+import type { ForecastWindow, GeoPoint, SourceMeta, WeatherAlert } from "./types";
+
+const NWS_API_URL = "https://api.weather.gov";
+
+interface NwsPointResponse {
+  properties?: {
+    forecastHourly?: string;
+    forecastZone?: string;
+    county?: string;
+    gridId?: string;
+    gridX?: number;
+    gridY?: number;
+  };
+}
+
+interface NwsHourlyPeriod {
+  startTime: string;
+  endTime: string;
+  windSpeed: string;
+  windGust?: string | null;
+  windDirection: string;
+  probabilityOfPrecipitation?: { value?: number | null };
+  shortForecast: string;
+}
+
+export async function getNwsForecastWindows(point: GeoPoint): Promise<ForecastWindow[]> {
+  try {
+    const pointResponse = await fetchNwsPoint(point);
+    const hourlyUrl = pointResponse.properties?.forecastHourly;
+    if (!hourlyUrl) throw new Error("NWS point response did not include forecastHourly");
+
+    const response = await fetch(hourlyUrl, {
+      headers: { Accept: "application/geo+json" },
+      next: { revalidate: 900 },
+    });
+    if (!response.ok) throw new Error(`NWS hourly forecast failed with ${response.status}`);
+
+    const json = (await response.json()) as { properties?: { periods?: NwsHourlyPeriod[]; updated?: string } };
+    const fetchedAt = new Date().toISOString();
+    const source: SourceMeta = {
+      source: "NWS hourly forecast",
+      status: "live",
+      fetchedAt,
+      observedAt: json.properties?.updated,
+      freshnessMinutes: json.properties?.updated ? minutesBetween(json.properties.updated, fetchedAt) : undefined,
+    };
+
+    return collapsePeriodsIntoWindows(json.properties?.periods ?? [], source);
+  } catch (error) {
+    return mockForecastWindows.map((window) => ({
+      ...window,
+      source: {
+        ...window.source,
+        status: "mock",
+        error: error instanceof Error ? error.message : "Unknown NWS forecast error",
+      },
+    }));
+  }
+}
+
+export async function getNwsAlerts(point: GeoPoint): Promise<WeatherAlert[]> {
+  try {
+    const pointResponse = await fetchNwsPoint(point);
+    const zone = pointResponse.properties?.forecastZone?.split("/").at(-1);
+    const county = pointResponse.properties?.county?.split("/").at(-1);
+    const zones = [zone, county].filter((value): value is string => Boolean(value));
+    const url = zones.length ? `${NWS_API_URL}/alerts/active?zone=${zones.join(",")}` : `${NWS_API_URL}/alerts/active?point=${point.latitude},${point.longitude}`;
+    const response = await fetch(url, {
+      headers: { Accept: "application/geo+json" },
+      next: { revalidate: 300 },
+    });
+    if (!response.ok) throw new Error(`NWS alerts failed with ${response.status}`);
+
+    const json = (await response.json()) as { features?: Array<{ id?: string; properties?: Record<string, string | null> }> };
+    const fetchedAt = new Date().toISOString();
+
+    return (json.features ?? []).map((feature, index) => ({
+      id: feature.id ?? `nws-alert-${index}`,
+      headline: feature.properties?.headline ?? feature.properties?.event ?? "NWS alert",
+      severity: feature.properties?.severity ?? "Unknown",
+      event: feature.properties?.event ?? "Unknown",
+      effectiveAt: feature.properties?.effective ?? null,
+      expiresAt: feature.properties?.expires ?? null,
+      description: feature.properties?.description ?? "",
+      source: {
+        source: "NWS alerts",
+        status: "live",
+        fetchedAt,
+      },
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchNwsPoint(point: GeoPoint): Promise<NwsPointResponse> {
+  const response = await fetch(`${NWS_API_URL}/points/${point.latitude},${point.longitude}`, {
+    headers: { Accept: "application/geo+json" },
+    next: { revalidate: 86400 },
+  });
+  if (!response.ok) throw new Error(`NWS point lookup failed with ${response.status}`);
+  return response.json();
+}
+
+function collapsePeriodsIntoWindows(periods: NwsHourlyPeriod[], source: SourceMeta): ForecastWindow[] {
+  return periods.slice(0, 18).map((period) => {
+    const speedKt = parseWindKt(period.windSpeed);
+    return {
+      startTime: period.startTime,
+      endTime: period.endTime,
+      windSpeedKt: speedKt,
+      windGustKt: period.windGust ? parseWindKt(period.windGust) : null,
+      windDirectionDeg: cardinalToDegrees(period.windDirection),
+      windDirectionCardinal: period.windDirection || degreesToCardinal(cardinalToDegrees(period.windDirection)),
+      precipitationChancePercent: period.probabilityOfPrecipitation?.value ?? null,
+      shortForecast: period.shortForecast,
+      source,
+    };
+  });
+}
+
+function parseWindKt(value: string): number | null {
+  const match = value.match(/(\d+)/);
+  if (!match) return null;
+  return Number(match[1]);
+}
+
+function cardinalToDegrees(value: string): number | null {
+  const normalized = value.toUpperCase();
+  const map: Record<string, number> = {
+    N: 0,
+    NNE: 23,
+    NE: 45,
+    ENE: 68,
+    E: 90,
+    ESE: 113,
+    SE: 135,
+    SSE: 158,
+    S: 180,
+    SSW: 203,
+    SW: 225,
+    WSW: 248,
+    W: 270,
+    WNW: 293,
+    NW: 315,
+    NNW: 338,
+  };
+  return map[normalized] ?? null;
+}
+
+function minutesBetween(start: string, end: string): number {
+  return Math.max(0, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000));
+}

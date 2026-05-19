@@ -1,36 +1,76 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Downwind AI
 
-## Getting Started
+A real-time ocean intelligence platform for downwind and ocean athletes.
 
-First, run the development server:
+## How to run
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Product screens
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/home` fast decision-making: ocean score, launch window, recommendation, current conditions, CTAs
+- `/live` realtime awareness: wind, buoy, tide, harbor/camera placeholders, alerts, confidence
+- `/routes` route planning: Maliko route visualization, wind assist, glide/re-entry sections, route quality
+- `/forecast` detailed planning: forecast windows, wind, swell, tide, confidence, source freshness
+- `/` redirects to `/home`
 
-## Learn More
+## Source list
 
-To learn more about Next.js, take a look at the following resources:
+- NWS API: `https://api.weather.gov` for points, hourly forecast, alerts, wind, rain, and clouds
+- NOAA Coastal Waters Forecast: `https://forecast.weather.gov/product.php?issuedby=HFO&product=CWF&site=hfo`
+- NOAA Marine Forecast Matrix: `https://www.weather.gov/hfo/MFM`
+- NWS Honolulu Surf Zone Forecast: `https://forecast.weather.gov/product.php?issuedby=HFO&product=SRF&site=HFO`
+- Hawaii Weather Today surfing report: `https://www.hawaiiweathertoday.com/surfing/`
+- Windytron Maui wind/swell graphs: `https://windytron.com`
+- NOAA CO-OPS tide predictions: Kahului station `1615680`
+- NDBC buoy data: station `51205`, with the buoy module structured for more Hawaii stations
+- NDBC / NOAA NOS station `KLIH1` / `1615680`: Kahului, Kahului Harbor, HI
+- Offshore buoys: `51004`, `51WH0`
+- South surf buoy: `51213` Kaumalapau Southwest, Lanai
+- Harbor wind checks: Maalaea Harbor, Mala Ramp/Lahaina, Lahaina Harbor, Kahului Harbor/KLIH1
+- PacIOOS currents: `https://www.pacioos.hawaii.edu/currents/model-hawaii/`
+- Hawaii FADS:
+  - `https://www.himb.hawaii.edu/FADS/`
+  - `https://www.himb.hawaii.edu/FADS/Maps%20%26%20Loc/MauiFADS.html`
+  - `https://www.himb.hawaii.edu/FADS/Maps%20%26%20Loc/MauiMap.html`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Architecture
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The first Ocean Intelligence data layer lives in `src/lib/ocean/`:
 
-## Deploy on Vercel
+- `types.ts` normalized ocean intelligence types
+- `ndbc.ts` NOAA NDBC buoy observation adapter
+- `coops.ts` NOAA CO-OPS tide/current adapter
+- `nws.ts` NOAA/NWS forecast and alerts adapter
+- `scoring.ts` downwind route scoring and interpreted values
+- `mock-data.ts` Maui route config and fallback data
+- `index.ts` app-facing API
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Legacy source adapters currently live in `src/lib/sources/` while the app migrates toward the Ocean Intelligence layer.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Next steps
+
+- Connect `/home`, `/live`, `/routes`, and `/forecast` to more route configs as they are added.
+- Parse NOAA HFO CWF sections for windward, leeward, and channel marine zones.
+- Parse or ingest NOAA Marine Forecast Matrix rows for seas and swell period.
+- Replace mock NDBC 51205 observation with live realtime feed data.
+- Replace mock Kahului tide predictions with NOAA CO-OPS station `1615680`.
+- Parse the Maui section of NWS SRFHFO for north/west/south/east shore surf.
+- Parse Hawaii Weather Today Maui surf spots and swell direction narrative.
+- Parse Windytron Kanaha, Ho'okipa, and Kihei wind delta graph signals.
+- Add the PacIOOS current layer as an ocean movement signal.
+- Parse HIMB Maui FAD tables and map coordinates.
+- Add real map rendering for Maui zones, FADs, buoy 51205, and current vectors.
+
+## TODO
+
+- Add route-level loading states.
+- Add tests for source parsers and scoring thresholds.
+- Add stale-data banners when a live source fails.
+- Add more Hawaii buoys through `hawaiiBuoyStations`.
+- Add user-editable thresholds for craft size, crew comfort, and preferred launch.
