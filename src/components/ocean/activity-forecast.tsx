@@ -306,7 +306,6 @@ function FishingMode({
   return (
     <div className="mt-6 space-y-5">
       <div>
-        <SectionKicker title="Is it comfortable and safe to fish?" />
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <FishingComfortCard swell={swell} zone={zone} />
           <PerformanceCard
