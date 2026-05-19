@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { ElementType } from "react";
-import { Anchor, ArrowUp, Clock3, CloudRain, Fish, Navigation, ShieldAlert, Waves } from "lucide-react";
+import { Anchor, ArrowUp, CloudRain, Fish, Navigation, ShieldAlert, Waves } from "lucide-react";
 
 import type { ForecastWindow, OceanConditionSnapshot, RouteScore } from "@/lib/ocean";
 
@@ -18,13 +18,11 @@ export function ActivityForecastPage({
   snapshot: OceanConditionSnapshot;
   score: RouteScore;
 }) {
-  const content = getActivityContent(activity);
   const zones: Zone[] = ["windward", "leeward"];
   const zoneLabel = getZoneLabel(selectedZone);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <ActivityHeader title={content.title} eyebrow={content.eyebrow} description={content.description} />
       <div className="flex gap-2">
         {zones.map((zone) => (
           <ZoneChip key={zone} zone={zone} active={zone === selectedZone} href={`/${activity}?zone=${zone}`} />
@@ -71,15 +69,16 @@ export function HomeForecastOverview({ snapshot, score }: { snapshot: OceanCondi
         </div>
       </section>
 
-      <div className="grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
+      <div>
         <OceanReadCard read={oceanRead} score={score.runQualityScore} />
-        <RainRiskCard snapshot={snapshot} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <SeaStateCard snapshot={snapshot} />
-        <TideCard snapshot={snapshot} />
+        <RainRiskCard snapshot={snapshot} />
       </div>
+
+      <TideCard snapshot={snapshot} />
 
       <div className="flex flex-wrap gap-3">
         <Link href="/forecast" className="rounded-full border border-[#102b3a] bg-[#102b3a] px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(16,43,58,0.12)]">
@@ -96,28 +95,34 @@ export function HomeForecastOverview({ snapshot, score }: { snapshot: OceanCondi
   );
 }
 
-export function ExtendedForecastOverview({ snapshot, score }: { snapshot: OceanConditionSnapshot; score: RouteScore }) {
-  const windows = buildForecastWindows(snapshot);
+export function ExtendedForecastOverview({
+  selectedZone,
+  snapshot,
+  score,
+}: {
+  selectedZone: Zone;
+  snapshot: OceanConditionSnapshot;
+  score: RouteScore;
+}) {
+  const zones: Zone[] = ["windward", "leeward"];
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <ActivityHeader
-        eyebrow="Extended forecast"
-        title="Next ocean windows"
-        description="Simple forecast cards for wind, gusts, swell, tide, rain, and the athlete read."
-      />
+      <div className="flex gap-2">
+        {zones.map((zone) => (
+          <ZoneChip key={zone} zone={zone} active={zone === selectedZone} href={`/forecast?zone=${zone}`} />
+        ))}
+      </div>
       <section className="ocean-card rounded-[1.5rem] border p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#4f626a]">Forecast timeline</p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-normal text-[#102b3a]">What are the next windows?</h2>
+            <h1 className="text-3xl font-semibold tracking-normal text-[#102b3a]">{getZoneLabel(selectedZone)} extended forecast</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f7078]">Three-day outlook for wind, bumps, tide, rain, and the activity condition.</p>
           </div>
-          <StatusPill status={`Read ${score.runQualityScore}`} />
+          <StatusPill status={`Score ${score.runQualityScore}`} />
         </div>
-        <div className="mt-5 space-y-3">
-          {windows.map((window) => (
-            <ForecastWindowCard key={`${window.label}-${window.wind}`} window={window} />
-          ))}
+        <div className="mt-5">
+          <ThreeDayForecastSection snapshot={snapshot} zone={selectedZone} />
         </div>
       </section>
     </div>
@@ -132,7 +137,7 @@ function DownwindMode({ zone, zoneWind, snapshot, score }: { zone: Zone; zoneWin
   return (
     <div className="mt-6 space-y-5">
       <div>
-        <SectionKicker label="Live now" title="How will the run feel?" />
+        <SectionKicker title="How will the run feel?" />
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <LiveWindBlock label="Run wind" wind={zoneWind} />
           <PerformanceCard
@@ -152,7 +157,7 @@ function DownwindMode({ zone, zoneWind, snapshot, score }: { zone: Zone; zoneWin
             note={getCrossingSwellNote(zoneWind, swell.direction)}
           />
           <PerformanceCard
-            icon={Clock3}
+            icon={Anchor}
             label="Launch window"
             tone="wind"
             primary={launchWindow}
@@ -179,16 +184,18 @@ function DownwindMode({ zone, zoneWind, snapshot, score }: { zone: Zone; zoneWin
       </div>
 
       <div>
-        <SectionKicker label="Ocean read" title="Run interpretation" />
+        <SectionKicker title="Run interpretation" />
         <div className="mt-4">
           <OceanReadCard read={downwindRead} score={score.runQualityScore} />
         </div>
       </div>
 
       <div>
-        <SectionKicker label="Forecast" title="Next downwind windows" />
-        <div className="mt-4">
-          <ThreeDayForecastSection snapshot={snapshot} zone={zone} />
+        <SectionKicker title="Today's downwind periods" />
+        <div className="mt-4 space-y-3">
+          {buildForecastWindows(snapshot).map((window) => (
+            <ForecastWindowCard key={`${window.label}-${window.wind}`} window={window} />
+          ))}
         </div>
       </div>
     </div>
@@ -202,7 +209,7 @@ function FishingMode({ zone, zoneWind, snapshot, score }: { zone: Zone; zoneWind
   return (
     <div className="mt-6 space-y-5">
       <div>
-        <SectionKicker label="Live now" title="Is it comfortable and safe to fish?" />
+        <SectionKicker title="Is it comfortable and safe to fish?" />
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <FishingComfortCard swell={swell} zone={zone} />
           <PerformanceCard
@@ -249,14 +256,14 @@ function FishingMode({ zone, zoneWind, snapshot, score }: { zone: Zone; zoneWind
       </div>
 
       <div>
-        <SectionKicker label="Ocean read" title="Fishing interpretation" />
+        <SectionKicker title="Fishing interpretation" />
         <div className="mt-4">
           <OceanReadCard read={fishingRead} score={score.dataConfidenceScore} />
         </div>
       </div>
 
       <div>
-        <SectionKicker label="Forecast" title="Next fishing windows" />
+        <SectionKicker title="Next fishing periods" />
         <div className="mt-4">
           <ThreeDayForecastSection snapshot={snapshot} zone={zone} />
         </div>
@@ -270,46 +277,46 @@ function ThreeDayForecastSection({ snapshot, zone = "windward", compact = false 
 
   return (
     <section className={compact ? "ocean-card-soft rounded-[1.25rem] border p-4" : "ocean-card-soft rounded-[1.25rem] border p-5"}>
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#4f626a]">3-day forecast</p>
-      <h2 className={compact ? "mt-1 text-xl font-semibold tracking-normal text-[#102b3a]" : "mt-1 text-2xl font-semibold tracking-normal text-[#102b3a]"}>Extended read</h2>
-      <div className="mt-4 hidden grid-cols-[0.75fr_1.15fr_1.15fr_0.75fr_0.7fr] gap-3 border-b border-[#edf1f2] pb-2 text-xs font-semibold uppercase tracking-[0.1em] text-[#4f626a] sm:grid">
-        <span>Day</span>
-        <span>Wind</span>
-        <span>Swell</span>
-        <span>Rain</span>
-        <span>Read</span>
-      </div>
+      <h2 className={compact ? "text-xl font-semibold tracking-normal text-[#102b3a]" : "text-2xl font-semibold tracking-normal text-[#102b3a]"}>Extended read</h2>
       <div className="mt-3 space-y-2">
-        {days.map((day) => (
-          <div key={day.day} className="ocean-row grid gap-3 rounded-2xl px-4 py-3 sm:grid-cols-[0.75fr_1.15fr_1.15fr_0.75fr_0.7fr]">
-            <p className="self-center font-semibold text-[#102b3a]">{day.day}</p>
-            <ForecastWindBlock value={day.wind} />
-            <ForecastSwellBlock value={day.swell} />
-            <ForecastRainBlock value={day.rain} />
-            <ForecastReadBlock />
-            {!compact ? <p className="sm:col-span-4 text-sm leading-6 text-[#6b7d84]">{day.read}</p> : null}
-          </div>
-        ))}
+        {days.map((day) => {
+          const wind = parseWind(day.wind);
+          const swell = parseSwell(day.swell);
+          const call = classifyWindow(Number.parseInt(wind.speed, 10), Number.parseInt(wind.gust, 10), Number.parseInt(day.rain, 10));
+          return (
+            <article key={day.day} className="ocean-row rounded-2xl p-4">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-lg font-semibold text-[#102b3a]">{day.day}</p>
+                <div className={getReadClass(call)}>
+                  <p className="text-[0.62rem] font-semibold uppercase tracking-[0.1em] opacity-65">Condition</p>
+                  <p className="mt-0.5 text-base font-semibold">{call}</p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="flex items-center gap-3 rounded-xl border border-cyan-800/10 bg-cyan-50/55 px-3 py-3">
+                  <WindArrow degrees={cardinalToDegrees(wind.direction)} />
+                  <div>
+                    <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-cyan-900/65">Wind</p>
+                    <p className="mt-1 text-lg font-semibold text-cyan-950">{wind.direction} {wind.speed}</p>
+                    <p className="mt-1 text-xs font-semibold text-amber-700">gust {wind.gust}</p>
+                  </div>
+                </div>
+                <ForecastMetric icon={Waves} label="Bumps / sea" value={swell.height} detail={`${swell.period} · ${swell.direction}`} tone="swell" />
+                <ForecastMetric icon={CloudRain} label="Rain" value={day.rain} detail="risk" tone="rain" />
+              </div>
+              {!compact ? <p className="mt-3 text-sm leading-6 text-[#6b7d84]">{day.read}</p> : null}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
 }
 
-function ActivityHeader({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
-  return (
-    <section className="ocean-card rounded-[1.5rem] border p-6">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#4f626a]">{eyebrow}</p>
-      <h1 className="mt-2 text-4xl font-semibold tracking-[0.01em] text-[#102b3a]">{title}</h1>
-      <p className="mt-3 max-w-2xl text-base leading-7 text-[#5f7078]">{description}</p>
-    </section>
-  );
-}
-
-function SectionKicker({ label, title }: { label: string; title: string }) {
+function SectionKicker({ title }: { title: string }) {
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#4f626a]">{label}</p>
-      <h3 className="mt-1 text-xl font-semibold tracking-normal text-[#102b3a]">{title}</h3>
+      <h3 className="text-xl font-semibold tracking-normal text-[#102b3a]">{title}</h3>
     </div>
   );
 }
@@ -381,6 +388,36 @@ function MiniStat({ label, value, tone }: { label: string; value: string; tone: 
     <div className={`rounded-xl border px-3 py-2 ${toneClasses[tone]}`}>
       <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] opacity-60">{label}</p>
       <p className="mt-1 text-sm font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function ForecastMetric({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  tone,
+}: {
+  icon: ElementType;
+  label: string;
+  value: string;
+  detail?: string;
+  tone: "swell" | "tide" | "rain";
+}) {
+  const toneClasses = {
+    swell: "border-blue-800/10 bg-blue-50/55 text-blue-950",
+    tide: "border-indigo-800/10 bg-indigo-50/55 text-indigo-950",
+    rain: "border-teal-800/10 bg-teal-50/55 text-teal-950",
+  };
+  return (
+    <div className={`flex items-center gap-3 rounded-xl border px-3 py-3 ${toneClasses[tone]}`}>
+      <Icon className="size-4 shrink-0 opacity-70" />
+      <div>
+        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] opacity-65">{label}</p>
+        <p className="mt-1 text-lg font-semibold leading-none">{value}</p>
+        {detail ? <p className="mt-1 text-sm font-medium opacity-75">{detail}</p> : null}
+      </div>
     </div>
   );
 }
@@ -491,10 +528,10 @@ function OceanReadCard({ read, score }: { read: string; score: number }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#4f626a]">Ocean read</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-normal text-[#102b3a]">Should I go?</h2>
+          <h2 className="mt-2 text-2xl font-semibold tracking-normal text-[#102b3a]">Conditions verdict</h2>
         </div>
         <div className="rounded-2xl border border-[#102b3a]/10 bg-[#102b3a] px-3 py-2 text-right text-white">
-          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-white/65">Read</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-white/65">Score</p>
           <p className="text-2xl font-semibold leading-none">{score}</p>
         </div>
       </div>
@@ -512,38 +549,41 @@ type ForecastWindowView = {
   swell: string;
   tide: string;
   rain: string;
-  read: "Good" | "Maybe" | "Bad";
+  read: WindowCall;
 };
 
+type WindowCall = "Solid" | "Mixed" | "Heavy";
+
 function ForecastWindowCard({ window }: { window: ForecastWindowView }) {
+  const swell = parseSwell(window.swell);
   return (
-    <article className="ocean-row grid gap-3 rounded-2xl p-4 sm:grid-cols-[0.95fr_1.2fr_1.15fr_0.9fr_0.75fr] sm:items-center">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#6b7d84]">Window</p>
-        <p className="mt-1 font-semibold text-[#102b3a]">{window.label}</p>
+    <article className="ocean-row rounded-2xl p-4">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#6b7d84]">Time</p>
+          <p className="mt-1 text-base font-semibold leading-snug text-[#102b3a] sm:text-lg">{window.label}</p>
+        </div>
+        <div className={getReadClass(window.read)}>
+          <p className="text-[0.62rem] font-semibold uppercase tracking-[0.1em] opacity-65">Condition</p>
+          <p className="mt-0.5 text-base font-semibold">{window.read}</p>
+        </div>
       </div>
-      <div className="rounded-xl border border-cyan-800/10 bg-cyan-50/65 px-3 py-2">
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-cyan-900/65">Wind</p>
-        <div className="mt-1 flex items-center gap-2">
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-[1.15fr_1fr] lg:grid-cols-[1.2fr_1fr_0.85fr_0.85fr]">
+        <div className="flex items-center gap-3 rounded-xl border border-cyan-800/10 bg-cyan-50/55 px-3 py-3">
           <WindArrow degrees={window.windDegrees} />
           <div>
-            <p className="text-xl font-semibold leading-none text-cyan-950">{window.windDirection}</p>
-            <p className="mt-1 text-sm font-semibold text-[#102b3a]">{window.wind}</p>
-            <p className="mt-1 text-xs font-semibold text-amber-700">gust {window.gust}</p>
+            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-cyan-900/65">Wind</p>
+            <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-2xl font-semibold leading-none text-cyan-950">{window.windDirection}</span>
+              <span className="text-base font-semibold text-[#102b3a]">{window.wind}</span>
+              <span className="rounded-full border border-amber-700/15 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">gust {window.gust}</span>
+            </div>
           </div>
         </div>
-      </div>
-      <ForecastSwellBlock value={window.swell} />
-      <div className="space-y-2">
-        <div className="rounded-xl border border-indigo-800/10 bg-indigo-50/65 px-3 py-2">
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-indigo-900/65">Tide</p>
-          <p className="mt-1 text-sm font-semibold capitalize text-indigo-950">{window.tide}</p>
-        </div>
-        <ForecastRainBlock value={window.rain} />
-      </div>
-      <div className={getReadClass(window.read)}>
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] opacity-65">Read</p>
-        <p className="mt-1 text-lg font-semibold">{window.read}</p>
+        <ForecastMetric icon={Waves} label="Bumps / sea" value={swell.height} detail={`${swell.period} · ${swell.direction}`} tone="swell" />
+        <ForecastMetric icon={Fish} label="Tide" value={capitalize(window.tide)} tone="tide" />
+        <ForecastMetric icon={CloudRain} label="Rain" value={window.rain} detail="risk" tone="rain" />
       </div>
     </article>
   );
@@ -552,7 +592,8 @@ function ForecastWindowCard({ window }: { window: ForecastWindowView }) {
 function SourceFreshnessBadge({ source }: { source: { source: string; status: string; freshnessMinutes?: number; observedAt?: string } }) {
   const freshness = source.freshnessMinutes !== undefined ? `${source.freshnessMinutes} min` : source.observedAt ? formatTime(source.observedAt) : "updated";
   return (
-    <span className="rounded-full border border-[#d7e0e3] bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#5f7078]">
+    <span className="inline-flex items-center gap-2 rounded-full border border-[#d7e0e3] bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#5f7078]">
+      <span className="live-pulse size-2 rounded-full bg-emerald-500" />
       {source.status === "live" ? "Live" : "Sample"} · {freshness}
     </span>
   );
@@ -573,74 +614,23 @@ function CategoryPill({ label, tone }: { label: string; tone: "wind" | "gust" | 
 function LiveWindBlock({ label, wind }: { label: string; wind: WindDisplay }) {
   return (
     <div className="rounded-2xl border border-cyan-800/10 bg-cyan-50/55 p-5">
-      <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-center">
-        <div className="flex items-center gap-3">
-          <WindArrow degrees={wind.degrees} large />
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <CategoryPill label="Wind" tone="wind" />
-              <span className="text-xs font-semibold uppercase tracking-[0.1em] text-cyan-900/70">{label}</span>
-            </div>
-            <p className="mt-2 text-4xl font-semibold leading-none text-cyan-950">{wind.direction}</p>
-            <p className="mt-2 text-xl font-semibold text-[#102b3a]">{wind.speed}</p>
+      <div className="flex items-center gap-4">
+        <WindArrow degrees={wind.degrees} large />
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <CategoryPill label="Wind" tone="wind" />
+            <span className="text-xs font-semibold uppercase tracking-[0.1em] text-cyan-900/70">{label}</span>
           </div>
-        </div>
-        <div className="flex flex-col items-start gap-3 sm:items-end">
-          <CompassRose degrees={wind.degrees} />
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-700/15 bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-800">
+          <div className="mt-3">
+            <p className="text-5xl font-semibold leading-none text-cyan-950">{wind.direction}</p>
+            <p className="mt-2 text-2xl font-semibold text-[#102b3a]">{wind.speed}</p>
+          </div>
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-700/15 bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-800">
             <span>GUST</span>
             <span>{wind.gust}</span>
           </div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function ForecastWindBlock({ value }: { value: string }) {
-  const wind = parseWind(value);
-  return (
-    <div className="h-full rounded-xl border border-cyan-800/10 bg-cyan-50/60 px-3 py-2">
-      <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-cyan-900/70">Wind</p>
-      <div className="flex items-center gap-2">
-        <WindArrow degrees={cardinalToDegrees(wind.direction)} />
-        <div>
-          <p className="text-xl font-semibold leading-none text-cyan-950">{wind.direction}</p>
-          <p className="mt-1 text-sm font-semibold text-[#102b3a]">{wind.speed}</p>
-          <p className="mt-1 text-xs font-semibold text-amber-700">gust {wind.gust}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ForecastSwellBlock({ value }: { value: string }) {
-  const swell = parseSwell(value);
-  return (
-    <div className="h-full rounded-xl border border-blue-800/10 bg-blue-50/60 px-3 py-2">
-      <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-blue-900/70">Bumps / sea</p>
-      <p className="text-lg font-semibold text-blue-950">{swell.height}</p>
-      <p className="mt-1 text-sm font-medium text-blue-900/80">{swell.period} · {swell.direction}</p>
-    </div>
-  );
-}
-
-function ForecastRainBlock({ value }: { value: string }) {
-  return (
-    <div className="h-full rounded-xl border border-teal-800/10 bg-teal-50/60 px-3 py-2">
-      <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-teal-900/70">Rain</p>
-      <p className="text-lg font-semibold text-teal-900">{value}</p>
-      <p className="mt-1 text-sm font-medium text-teal-800/75">probability</p>
-    </div>
-  );
-}
-
-function ForecastReadBlock() {
-  return (
-    <div className="h-full rounded-xl border border-[#102b3a]/10 bg-[#102b3a] px-3 py-2 text-white">
-      <p className="mb-2 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-white/65">Read</p>
-      <p className="text-lg font-semibold">Good</p>
-      <p className="mt-1 text-sm font-medium text-white/70">usable window</p>
     </div>
   );
 }
@@ -662,44 +652,16 @@ type WindDisplay = {
   isSample: boolean;
 };
 
-function CompassRose({ degrees }: { degrees: number }) {
-  return (
-    <div className="relative size-24 rounded-full border border-cyan-900/12 bg-white/45">
-      <span className="absolute left-1/2 top-1 -translate-x-1/2 text-[0.65rem] font-semibold text-cyan-900/55">N</span>
-      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[0.65rem] font-semibold text-cyan-900/55">S</span>
-      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[0.65rem] font-semibold text-cyan-900/55">W</span>
-      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[0.65rem] font-semibold text-cyan-900/55">E</span>
-      <span className="absolute left-1/2 top-1/2 h-px w-14 origin-left bg-cyan-800" style={{ transform: `rotate(${degrees + 180}deg)` }} />
-      <span className="absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-800" />
-    </div>
-  );
-}
-
 function WindArrow({ degrees, large = false }: { degrees: number; large?: boolean }) {
   return (
-    <span className={large ? "grid size-12 shrink-0 place-items-center" : "grid size-9 shrink-0 place-items-center"}>
+    <span className={large ? "grid size-14 shrink-0 place-items-center" : "grid size-9 shrink-0 place-items-center"}>
       <ArrowUp
-        className={large ? "size-8 text-[#0d5968]" : "size-7 text-[#0d5968]"}
+        className={large ? "size-10 text-[#0d5968]" : "size-7 text-[#0d5968]"}
         style={{ transform: `rotate(${degrees + 180}deg)` }}
         aria-hidden
       />
     </span>
   );
-}
-
-function getActivityContent(activity: Activity) {
-  if (activity === "downwind") {
-    return {
-      eyebrow: "Downwind",
-      title: "Live and extended downwind forecast",
-      description: "Wind, swell, rain, alerts, and launch-window context for Maui downwind runs.",
-    };
-  }
-  return {
-    eyebrow: "Fishing",
-    title: "Live and extended fishing forecast",
-    description: "Wind, sea state, tide, water temperature, rain, and safety checks for fishing around Maui.",
-  };
 }
 
 function getLiveStatus(snapshot: OceanConditionSnapshot) {
@@ -830,7 +792,7 @@ function buildForecastWindows(snapshot: OceanConditionSnapshot): ForecastWindowV
     const windSpeed = window.windSpeedKt !== null ? `${window.windSpeedKt} kt` : "-";
     const gust = window.windGustKt !== null ? `${window.windGustKt} kt` : "-";
     return {
-      label: `${formatTime(window.startTime)}-${formatTime(window.endTime)}`,
+      label: formatTimeRange(window.startTime, window.endTime),
       wind: windSpeed,
       gust,
       windDirection: direction,
@@ -862,16 +824,16 @@ function buildForecastWindows(snapshot: OceanConditionSnapshot): ForecastWindowV
   return [...liveWindows, ...fallbackWindows].slice(0, 3);
 }
 
-function classifyWindow(windSpeed: number | null, gust: number | null, rain: number | null): "Good" | "Maybe" | "Bad" {
-  if (windSpeed === null) return "Maybe";
-  if (windSpeed >= 18 && windSpeed <= 28 && (gust ?? 0) <= 35 && (rain ?? 0) < 40) return "Good";
-  if (windSpeed < 10 || windSpeed > 32 || (rain ?? 0) >= 55) return "Bad";
-  return "Maybe";
+function classifyWindow(windSpeed: number | null, gust: number | null, rain: number | null): WindowCall {
+  if (windSpeed === null) return "Mixed";
+  if (windSpeed >= 18 && windSpeed <= 28 && (gust ?? 0) <= 35 && (rain ?? 0) < 40) return "Solid";
+  if (windSpeed < 10 || windSpeed > 32 || (rain ?? 0) >= 55) return "Heavy";
+  return "Mixed";
 }
 
-function getReadClass(read: "Good" | "Maybe" | "Bad") {
-  if (read === "Good") return "rounded-xl border border-teal-800/10 bg-teal-50/80 px-3 py-2 text-teal-950";
-  if (read === "Maybe") return "rounded-xl border border-amber-800/10 bg-amber-50/80 px-3 py-2 text-amber-950";
+function getReadClass(read: WindowCall) {
+  if (read === "Solid") return "rounded-xl border border-teal-800/10 bg-teal-50/80 px-3 py-2 text-teal-950";
+  if (read === "Mixed") return "rounded-xl border border-amber-800/10 bg-amber-50/80 px-3 py-2 text-amber-950";
   return "rounded-xl border border-orange-800/15 bg-orange-50/85 px-3 py-2 text-orange-950";
 }
 
@@ -885,7 +847,7 @@ function buildThreeDayForecast(windows: ForecastWindow[], zone: Zone) {
 
   const grouped = new Map<string, ForecastWindow[]>();
   for (const window of windows) {
-    const label = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" }).format(new Date(window.startTime));
+    const label = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "Pacific/Honolulu" }).format(new Date(window.startTime));
     grouped.set(label, [...(grouped.get(label) ?? []), window]);
   }
 
@@ -916,7 +878,15 @@ function range(values: number[]) {
 }
 
 function formatTime(value: string) {
-  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZoneName: "short" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Pacific/Honolulu", timeZoneName: "short" }).format(new Date(value));
+}
+
+function formatTimeRange(startValue: string, endValue: string) {
+  const start = new Date(startValue);
+  const end = new Date(endValue);
+  const startLabel = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Pacific/Honolulu" }).format(start);
+  const endLabel = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: "Pacific/Honolulu", timeZoneName: "short" }).format(end);
+  return `${startLabel}-${endLabel}`;
 }
 
 function parseWind(value: string) {
@@ -1003,6 +973,8 @@ function buildFallbackForecast(zone: Zone) {
 
   return source.map((day, index) => ({
     ...day,
-    day: new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(new Date(today.getFullYear(), today.getMonth(), today.getDate() + index)),
+    day: new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "Pacific/Honolulu" }).format(
+      new Date(today.getFullYear(), today.getMonth(), today.getDate() + index),
+    ),
   }));
 }

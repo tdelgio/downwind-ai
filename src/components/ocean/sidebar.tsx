@@ -4,8 +4,8 @@ import { CalendarDays, Fish, Home, Waves } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/home", label: "Home", description: "Live now", icon: Home },
-  { href: "/forecast", label: "Forecast", description: "Next windows", icon: CalendarDays },
+  { href: "/home", label: "Live", description: "Right now", icon: Home },
+  { href: "/forecast", label: "Forecast", description: "Extended", icon: CalendarDays },
   { href: "/downwind", label: "Downwind", description: "Run read", icon: Waves },
   { href: "/fishing", label: "Fishing", description: "Ocean read", icon: Fish },
 ];
@@ -35,7 +35,10 @@ export function Sidebar({ active }: { active: string }) {
           >
             <item.icon className="size-5" />
             <span>
-              <span className="block text-sm font-semibold">{item.label}</span>
+              <span className="flex items-center gap-2 text-sm font-semibold">
+                {item.href === "/home" ? <span className="live-pulse size-2 rounded-full bg-emerald-500" /> : null}
+                {item.label}
+              </span>
               <span className={cn("block text-xs font-medium", active === item.href ? "text-white/70" : "text-[#8b9ba2]")}>{item.description}</span>
             </span>
           </Link>

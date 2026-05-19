@@ -28,7 +28,10 @@ export function TopNavigation({ active }: { active: string }) {
               active === item.href ? "bg-[#102b3a] text-white" : "bg-[#f3f7f8] text-[#5f7078]",
             )}
           >
-            {item.label}
+            <span className="inline-flex items-center justify-center gap-1.5">
+              {item.href === "/home" ? <span className="live-pulse size-1.5 rounded-full bg-emerald-500" /> : null}
+              {item.label}
+            </span>
           </Link>
         ))}
       </nav>
