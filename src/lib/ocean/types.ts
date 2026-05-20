@@ -27,6 +27,15 @@ export interface WindObservation {
   source: SourceMeta;
 }
 
+export interface HarborWindObservation {
+  id: string;
+  name: string;
+  side: "north" | "south" | "west" | "central";
+  coordinates: GeoPoint;
+  observation: WindObservation;
+  note: string;
+}
+
 export interface SwellObservation {
   heightFt: number | null;
   dominantPeriodSec: number | null;
@@ -105,6 +114,7 @@ export interface OceanConditionSnapshot {
   wind: WindObservation;
   swell: SwellObservation;
   tide: TideObservation;
+  harborWinds: HarborWindObservation[];
   forecastWindows: ForecastWindow[];
   alerts: WeatherAlert[];
   sources: SourceMeta[];

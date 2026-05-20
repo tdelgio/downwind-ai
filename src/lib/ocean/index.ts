@@ -1,4 +1,5 @@
 import { getCoopsTideObservation } from "./coops";
+import { getMauiHarborWinds } from "./harbors";
 import { createMockOceanSnapshot, malikoNorthShoreRoute } from "./mock-data";
 import { getNdbcObservations } from "./ndbc";
 import { getNwsAlerts, getNwsForecastWindows } from "./nws";
@@ -11,6 +12,7 @@ export type {
   OceanIntelligenceResult,
   RouteConfig,
   RouteScore,
+  HarborWindObservation,
   SwellObservation,
   TideObservation,
   WindObservation,
@@ -19,6 +21,7 @@ export type {
 export { malikoNorthShoreRoute } from "./mock-data";
 export { getNdbcObservations } from "./ndbc";
 export { getCoopsTideObservation } from "./coops";
+export { getMauiHarborWinds } from "./harbors";
 export { getNwsAlerts, getNwsForecastWindows } from "./nws";
 export { scoreRoute } from "./scoring";
 
@@ -32,9 +35,10 @@ export async function getOceanIntelligence(route: RouteConfig = malikoNorthShore
 
 export async function getOceanConditionSnapshot(route: RouteConfig = malikoNorthShoreRoute): Promise<OceanConditionSnapshot> {
   try {
-    const [buoy, tide, forecastWindows, alerts] = await Promise.all([
+    const [buoy, tide, harborWinds, forecastWindows, alerts] = await Promise.all([
       getNdbcObservations(route.stations.primaryBuoyId),
       getCoopsTideObservation(route.stations.tideStationId),
+      getMauiHarborWinds(),
       getNwsForecastWindows(route.stations.nwsPoint),
       getNwsAlerts(route.stations.nwsPoint),
     ]);
@@ -46,12 +50,14 @@ export async function getOceanConditionSnapshot(route: RouteConfig = malikoNorth
       wind: buoy.wind,
       swell: buoy.swell,
       tide,
+      harborWinds,
       forecastWindows,
       alerts,
       sources: [
         buoy.wind.source,
         buoy.swell.source,
         tide.source,
+        ...harborWinds.map((harbor) => harbor.observation.source),
         ...forecastWindows.map((window) => window.source),
         ...alerts.map((alert) => alert.source),
       ],

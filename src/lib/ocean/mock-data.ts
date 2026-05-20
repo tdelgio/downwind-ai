@@ -1,4 +1,4 @@
-import type { ForecastWindow, OceanConditionSnapshot, RouteConfig, SwellObservation, TideObservation, WindObservation } from "./types";
+import type { ForecastWindow, HarborWindObservation, OceanConditionSnapshot, RouteConfig, SwellObservation, TideObservation, WindObservation } from "./types";
 
 export const malikoNorthShoreRoute: RouteConfig = {
   id: "maui-maliko-north-shore",
@@ -25,7 +25,7 @@ export const malikoNorthShoreRoute: RouteConfig = {
   },
 };
 
-const now = "2026-05-18T08:00:00-10:00";
+const now = "2026-05-19T08:00:00-10:00";
 
 export const mockWindObservation: WindObservation = {
   speedKt: 21,
@@ -37,7 +37,7 @@ export const mockWindObservation: WindObservation = {
     status: "mock",
     stationId: "51205",
     fetchedAt: now,
-    observedAt: "2026-05-18T07:40:00-10:00",
+    observedAt: "2026-05-19T07:40:00-10:00",
     freshnessMinutes: 20,
   },
 };
@@ -53,7 +53,7 @@ export const mockSwellObservation: SwellObservation = {
     status: "mock",
     stationId: "51205",
     fetchedAt: now,
-    observedAt: "2026-05-18T07:40:00-10:00",
+    observedAt: "2026-05-19T07:40:00-10:00",
     freshnessMinutes: 20,
   },
 };
@@ -63,12 +63,12 @@ export const mockTideObservation: TideObservation = {
   stationName: "Kahului, Kahului Harbor, HI",
   currentWaterLevelFt: 1.1,
   trend: "falling",
-  nextHigh: { time: "2026-05-18T13:42:00-10:00", heightFt: 1.8, type: "high" },
-  nextLow: { time: "2026-05-18T19:56:00-10:00", heightFt: 0.5, type: "low" },
+  nextHigh: { time: "2026-05-19T13:42:00-10:00", heightFt: 1.8, type: "high" },
+  nextLow: { time: "2026-05-19T19:56:00-10:00", heightFt: 0.5, type: "low" },
   predictions: [
-    { time: "2026-05-18T07:18:00-10:00", heightFt: 0.3, type: "low" },
-    { time: "2026-05-18T13:42:00-10:00", heightFt: 1.8, type: "high" },
-    { time: "2026-05-18T19:56:00-10:00", heightFt: 0.5, type: "low" },
+    { time: "2026-05-19T07:18:00-10:00", heightFt: 0.3, type: "low" },
+    { time: "2026-05-19T13:42:00-10:00", heightFt: 1.8, type: "high" },
+    { time: "2026-05-19T19:56:00-10:00", heightFt: 0.5, type: "low" },
   ],
   source: {
     source: "Mock NOAA CO-OPS 1615680",
@@ -82,8 +82,8 @@ export const mockTideObservation: TideObservation = {
 
 export const mockForecastWindows: ForecastWindow[] = [
   {
-    startTime: "2026-05-18T11:00:00-10:00",
-    endTime: "2026-05-18T14:00:00-10:00",
+    startTime: "2026-05-19T11:00:00-10:00",
+    endTime: "2026-05-19T14:00:00-10:00",
     windSpeedKt: 20,
     windGustKt: 28,
     windDirectionDeg: 75,
@@ -99,8 +99,8 @@ export const mockForecastWindows: ForecastWindow[] = [
     },
   },
   {
-    startTime: "2026-05-18T14:00:00-10:00",
-    endTime: "2026-05-18T17:00:00-10:00",
+    startTime: "2026-05-19T14:00:00-10:00",
+    endTime: "2026-05-19T17:00:00-10:00",
     windSpeedKt: 24,
     windGustKt: 33,
     windDirectionDeg: 80,
@@ -117,6 +117,13 @@ export const mockForecastWindows: ForecastWindow[] = [
   },
 ];
 
+export const mockHarborWinds: HarborWindObservation[] = [
+  createMockHarborWind("kahului-harbor", "Kahului Harbor", "central", { latitude: 20.895, longitude: -156.469 }, "KLIH1"),
+  createMockHarborWind("maalaea-harbor", "Maalaea Harbor", "south", { latitude: 20.790, longitude: -156.512 }),
+  createMockHarborWind("mala-ramp", "Mala Ramp", "west", { latitude: 20.884, longitude: -156.686 }),
+  createMockHarborWind("lahaina-harbor", "Lahaina Harbor", "west", { latitude: 20.872, longitude: -156.678 }),
+];
+
 export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRoute): OceanConditionSnapshot {
   return {
     route,
@@ -124,8 +131,45 @@ export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRou
     wind: mockWindObservation,
     swell: mockSwellObservation,
     tide: mockTideObservation,
+    harborWinds: mockHarborWinds,
     forecastWindows: mockForecastWindows,
     alerts: [],
-    sources: [mockWindObservation.source, mockSwellObservation.source, mockTideObservation.source, ...mockForecastWindows.map((window) => window.source)],
+    sources: [
+      mockWindObservation.source,
+      mockSwellObservation.source,
+      mockTideObservation.source,
+      ...mockHarborWinds.map((harbor) => harbor.observation.source),
+      ...mockForecastWindows.map((window) => window.source),
+    ],
+  };
+}
+
+function createMockHarborWind(
+  id: string,
+  name: string,
+  side: HarborWindObservation["side"],
+  coordinates: HarborWindObservation["coordinates"],
+  stationId?: string,
+): HarborWindObservation {
+  return {
+    id,
+    name,
+    side,
+    coordinates,
+    note: stationId ? "Mock real-time harbor wind fallback." : "Mock NWS harbor forecast fallback.",
+    observation: {
+      speedKt: side === "south" ? 14 : side === "west" ? 11 : 16,
+      gustKt: side === "south" ? 21 : side === "west" ? 18 : 24,
+      directionDeg: side === "south" ? 95 : 75,
+      directionCardinal: side === "south" ? "E" : "ENE",
+      source: {
+        source: stationId ? `Mock NDBC ${stationId}` : `Mock NWS proxy · ${name}`,
+        status: "mock",
+        stationId,
+        fetchedAt: now,
+        observedAt: now,
+        freshnessMinutes: 0,
+      },
+    },
   };
 }

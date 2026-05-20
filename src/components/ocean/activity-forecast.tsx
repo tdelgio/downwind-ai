@@ -12,6 +12,7 @@ import {
 
 import type {
   ForecastWindow,
+  HarborWindObservation,
   OceanConditionSnapshot,
   RouteScore,
 } from "@/lib/ocean";
@@ -305,6 +306,8 @@ function FishingMode({
 
   return (
     <div className="mt-6 space-y-5">
+      <HarborWindsSection harbors={snapshot.harborWinds} />
+
       <div>
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
           <FishingComfortCard swell={swell} zone={zone} />
@@ -607,6 +610,55 @@ function ForecastMetric({
       </div>
     </div>
   );
+}
+
+function HarborWindsSection({ harbors }: { harbors: HarborWindObservation[] }) {
+  return (
+    <section>
+      <SectionKicker title="Harbor wind now" />
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {harbors.map((harbor) => (
+          <HarborWindCard key={harbor.id} harbor={harbor} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function HarborWindCard({ harbor }: { harbor: HarborWindObservation }) {
+  const wind = windObservationToDisplay(harbor.observation);
+  return (
+    <article className="rounded-2xl border border-cyan-800/10 bg-cyan-50/45 p-4 text-cyan-950">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-lg font-semibold leading-tight text-[#102b3a]">{harbor.name}</p>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.1em] text-cyan-900/60">{harbor.side} side</p>
+        </div>
+        <SourceFreshnessBadge source={harbor.observation.source} />
+      </div>
+      <div className="mt-4 flex items-center gap-3">
+        <WindArrow degrees={wind.degrees} />
+        <div>
+          <p className="text-3xl font-semibold leading-none">{wind.direction}</p>
+          <p className="mt-1 text-xl font-semibold text-[#102b3a]">{wind.speed}</p>
+          <p className="mt-2 inline-flex rounded-full border border-amber-700/15 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+            gust {wind.gust}
+          </p>
+        </div>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-cyan-900/70">{harbor.note}</p>
+    </article>
+  );
+}
+
+function windObservationToDisplay(wind: HarborWindObservation["observation"]): WindDisplay {
+  return {
+    direction: wind.directionCardinal ?? "DIR -",
+    speed: wind.speedKt !== null ? `${wind.speedKt} kt` : "wind missing",
+    gust: wind.gustKt !== null ? `${wind.gustKt} kt` : "-",
+    degrees: wind.directionDeg ?? 90,
+    isSample: wind.source.status !== "live",
+  };
 }
 
 function LiveWindCard({

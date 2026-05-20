@@ -1,6 +1,6 @@
 import { mockForecastWindows } from "./mock-data";
 import { degreesToCardinal } from "./ndbc";
-import type { ForecastWindow, GeoPoint, SourceMeta, WeatherAlert } from "./types";
+import type { ForecastWindow, GeoPoint, SourceMeta, WeatherAlert, WindObservation } from "./types";
 
 const NWS_API_URL = "https://api.weather.gov";
 
@@ -95,6 +95,39 @@ export async function getNwsAlerts(point: GeoPoint): Promise<WeatherAlert[]> {
   }
 }
 
+export async function getNwsCurrentWindObservation(point: GeoPoint, label: string): Promise<WindObservation> {
+  try {
+    const windows = await getNwsForecastWindows(point);
+    const current = windows[0];
+    if (!current) throw new Error(`NWS current wind proxy missing for ${label}`);
+    return {
+      speedKt: current.windSpeedKt,
+      gustKt: current.windGustKt,
+      directionDeg: current.windDirectionDeg,
+      directionCardinal: current.windDirectionCardinal ?? degreesToCardinal(current.windDirectionDeg),
+      source: {
+        ...current.source,
+        source: `NWS hourly forecast proxy · ${label}`,
+      },
+    };
+  } catch (error) {
+    return {
+      speedKt: null,
+      gustKt: null,
+      directionDeg: null,
+      directionCardinal: null,
+      source: {
+        source: `NWS hourly forecast proxy · ${label}`,
+        status: "missing",
+        fetchedAt: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Unknown NWS harbor wind error",
+      },
+    };
+  }
+}
+
+export type { GeoPoint };
+
 async function fetchNwsPoint(point: GeoPoint): Promise<NwsPointResponse> {
   const response = await fetch(`${NWS_API_URL}/points/${point.latitude},${point.longitude}`, {
     headers: { Accept: "application/geo+json" },
@@ -122,9 +155,12 @@ function collapsePeriodsIntoWindows(periods: NwsHourlyPeriod[], source: SourceMe
 }
 
 function parseWindKt(value: string): number | null {
-  const match = value.match(/(\d+)/);
-  if (!match) return null;
-  return Number(match[1]);
+  const values = [...value.matchAll(/(\d+)/g)].map((match) => Number(match[1])).filter(Number.isFinite);
+  if (!values.length) return null;
+  const speed = Math.max(...values);
+  const normalized = value.toLowerCase();
+  if (normalized.includes("mph")) return Math.round(speed * 0.868976);
+  return speed;
 }
 
 function cardinalToDegrees(value: string): number | null {
