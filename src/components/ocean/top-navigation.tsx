@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Waves } from "lucide-react";
 
 import { navItems } from "@/components/ocean/sidebar";
+import { ThemeToggle } from "@/components/ocean/theme-toggle";
 import { cn } from "@/lib/utils";
 
 export function TopNavigation({ active }: { active: string }) {
@@ -14,18 +15,18 @@ export function TopNavigation({ active }: { active: string }) {
           </span>
           <span className="text-sm font-semibold text-[#102b3a]">Downwind AI</span>
         </Link>
-        <span className="rounded-full bg-[#f7fafa] px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-[#5f7078] ring-1 ring-[#e4e8ea]">
-          Maui
-        </span>
+        <ThemeToggle compact />
       </div>
-      <nav className="mt-3 grid grid-cols-4 gap-2">
+      <nav className="mt-3 grid grid-cols-3 gap-2">
         {navItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
               "rounded-full px-2 py-2 text-center text-xs font-semibold uppercase tracking-[0.08em]",
-              active === item.href ? "bg-[#102b3a] text-white" : "bg-[#f3f7f8] text-[#5f7078]",
+              active === item.href
+                ? "border border-[#0d5968]/20 bg-[#dff7f6] text-[#0d5968]"
+                : "border border-transparent bg-[#f3f7f8] text-[#5f7078]",
             )}
           >
             <span className="inline-flex items-center justify-center gap-1.5">

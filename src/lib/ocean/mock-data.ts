@@ -25,7 +25,7 @@ export const malikoNorthShoreRoute: RouteConfig = {
   },
 };
 
-const now = "2026-05-19T08:00:00-10:00";
+const now = "2026-05-21T08:00:00-10:00";
 
 export const mockWindObservation: WindObservation = {
   speedKt: 21,
@@ -37,7 +37,7 @@ export const mockWindObservation: WindObservation = {
     status: "mock",
     stationId: "51205",
     fetchedAt: now,
-    observedAt: "2026-05-19T07:40:00-10:00",
+    observedAt: "2026-05-21T07:40:00-10:00",
     freshnessMinutes: 20,
   },
 };
@@ -53,7 +53,7 @@ export const mockSwellObservation: SwellObservation = {
     status: "mock",
     stationId: "51205",
     fetchedAt: now,
-    observedAt: "2026-05-19T07:40:00-10:00",
+    observedAt: "2026-05-21T07:40:00-10:00",
     freshnessMinutes: 20,
   },
 };
@@ -63,12 +63,12 @@ export const mockTideObservation: TideObservation = {
   stationName: "Kahului, Kahului Harbor, HI",
   currentWaterLevelFt: 1.1,
   trend: "falling",
-  nextHigh: { time: "2026-05-19T13:42:00-10:00", heightFt: 1.8, type: "high" },
-  nextLow: { time: "2026-05-19T19:56:00-10:00", heightFt: 0.5, type: "low" },
+  nextHigh: { time: "2026-05-21T13:42:00-10:00", heightFt: 1.8, type: "high" },
+  nextLow: { time: "2026-05-21T19:56:00-10:00", heightFt: 0.5, type: "low" },
   predictions: [
-    { time: "2026-05-19T07:18:00-10:00", heightFt: 0.3, type: "low" },
-    { time: "2026-05-19T13:42:00-10:00", heightFt: 1.8, type: "high" },
-    { time: "2026-05-19T19:56:00-10:00", heightFt: 0.5, type: "low" },
+    { time: "2026-05-21T07:18:00-10:00", heightFt: 0.3, type: "low" },
+    { time: "2026-05-21T13:42:00-10:00", heightFt: 1.8, type: "high" },
+    { time: "2026-05-21T19:56:00-10:00", heightFt: 0.5, type: "low" },
   ],
   source: {
     source: "Mock NOAA CO-OPS 1615680",
@@ -82,8 +82,8 @@ export const mockTideObservation: TideObservation = {
 
 export const mockForecastWindows: ForecastWindow[] = [
   {
-    startTime: "2026-05-19T11:00:00-10:00",
-    endTime: "2026-05-19T14:00:00-10:00",
+    startTime: "2026-05-21T11:00:00-10:00",
+    endTime: "2026-05-21T14:00:00-10:00",
     windSpeedKt: 20,
     windGustKt: 28,
     windDirectionDeg: 75,
@@ -99,8 +99,8 @@ export const mockForecastWindows: ForecastWindow[] = [
     },
   },
   {
-    startTime: "2026-05-19T14:00:00-10:00",
-    endTime: "2026-05-19T17:00:00-10:00",
+    startTime: "2026-05-21T14:00:00-10:00",
+    endTime: "2026-05-21T17:00:00-10:00",
     windSpeedKt: 24,
     windGustKt: 33,
     windDirectionDeg: 80,

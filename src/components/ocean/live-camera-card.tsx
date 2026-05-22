@@ -41,8 +41,8 @@ export function LiveCameraCard({
         </div>
         <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-white drop-shadow">{location}</p>
-            <p className="text-xs font-medium text-white/80 drop-shadow">{title}</p>
+            <p className="weather-data text-base leading-none text-white drop-shadow">{location}</p>
+            <p className="mt-1 text-xs font-medium text-white/80 drop-shadow">{title}</p>
           </div>
           <Camera className="size-5 text-white/85 drop-shadow" />
         </div>
