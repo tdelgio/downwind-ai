@@ -203,6 +203,24 @@
   }
 }
 
+@keyframes cameraDrift {
+  0% {
+    transform: translateX(-4%);
+  }
+  100% {
+    transform: translateX(4%);
+  }
+}
+
+@keyframes waterlineMove {
+  0% {
+    transform: translateX(-3%) rotate(-2deg);
+  }
+  100% {
+    transform: translateX(3%) rotate(-2deg);
+  }
+}
+
 .ocean-lines {
   animation: oceanLines 18s linear infinite;
 }
@@ -293,6 +311,53 @@
 
 .live-pulse {
   animation: livePulse 2.8s ease-in-out infinite;
+}
+
+.live-camera-frame {
+  position: relative;
+  min-height: 190px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(6, 45, 62, 0.2), rgba(8, 79, 94, 0.28)),
+    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.5), transparent 22%),
+    linear-gradient(165deg, rgba(19, 116, 144, 0.34) 0 42%, rgba(224, 244, 242, 0.74) 42% 46%, rgba(11, 92, 114, 0.56) 46% 100%);
+}
+
+.live-camera-north {
+  background:
+    linear-gradient(180deg, rgba(5, 43, 61, 0.12), rgba(8, 79, 94, 0.2)),
+    radial-gradient(circle at 66% 12%, rgba(255, 255, 255, 0.6), transparent 20%),
+    repeating-linear-gradient(171deg, rgba(255, 255, 255, 0.42) 0 2px, transparent 2px 32px),
+    linear-gradient(160deg, rgba(10, 96, 126, 0.28) 0 48%, rgba(238, 248, 246, 0.8) 48% 51%, rgba(13, 91, 110, 0.54) 51% 100%);
+}
+
+.live-camera-south {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(15, 110, 130, 0.16)),
+    radial-gradient(circle at 78% 20%, rgba(255, 255, 255, 0.58), transparent 22%),
+    linear-gradient(158deg, rgba(23, 139, 151, 0.22) 0 46%, rgba(244, 239, 222, 0.82) 46% 50%, rgba(25, 118, 139, 0.46) 50% 100%);
+}
+
+.camera-scan {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 5px),
+    linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  opacity: 0.28;
+  animation: cameraDrift 8s ease-in-out infinite alternate;
+}
+
+.camera-waterline {
+  position: absolute;
+  left: -12%;
+  right: -12%;
+  top: 54%;
+  height: 44px;
+  background: repeating-linear-gradient(172deg, rgba(255, 255, 255, 0.58) 0 2px, transparent 2px 24px);
+  opacity: 0.42;
+  transform: rotate(-2deg);
+  animation: waterlineMove 6s ease-in-out infinite alternate;
 }
 
 .ocean-texture-overlay {

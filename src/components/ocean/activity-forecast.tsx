@@ -6,10 +6,12 @@ import {
   CloudRain,
   Fish,
   Navigation,
+  Radio,
   ShieldAlert,
   Waves,
 } from "lucide-react";
 
+import { LiveCameraCard, type LiveCameraCardProps } from "@/components/ocean/live-camera-card";
 import type {
   ForecastWindow,
   HarborWindObservation,
@@ -19,6 +21,7 @@ import type {
 
 type Activity = "downwind" | "fishing";
 type Zone = "windward" | "leeward";
+type WindTone = "light" | "clean" | "medium" | "strong" | "wild";
 
 export function ActivityForecastPage({
   activity,
@@ -131,6 +134,8 @@ export function HomeForecastOverview({
 
       <TideCard snapshot={snapshot} />
 
+      <LiveOceanSection snapshot={snapshot} />
+
       <div className="flex flex-wrap gap-3">
         <Link
           href="/forecast"
@@ -211,17 +216,15 @@ function DownwindMode({
   score: RouteScore;
 }) {
   const swell = parseSwell(formatSwell(snapshot));
-  const launchWindow = score.bestLaunchWindow
-    ? `${formatTime(score.bestLaunchWindow.startTime)} launch`
-    : "Window pending";
   const downwindRead = buildDownwindRead(zone, snapshot, score, zoneWind);
+  const gustSpread = getGustSpread(zoneWind);
 
   return (
     <div className="mt-6 space-y-5">
       <div>
         <SectionKicker title="How will the run feel?" />
         <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          <LiveWindBlock label="Run wind" wind={zoneWind} />
+          <LiveWindBlock label="Wind now" wind={zoneWind} />
           <PerformanceCard
             icon={Waves}
             label="Bumps / sea state"
@@ -240,14 +243,11 @@ function DownwindMode({
           />
           <PerformanceCard
             icon={Anchor}
-            label="Launch window"
+            label="Gust spread"
             tone="wind"
-            primary={launchWindow}
-            secondary={
-              score.bestLaunchWindow?.shortForecast ??
-              "Uses forecast wind and rain windows."
-            }
-            note="Best raw model window, not a guarantee."
+            primary={gustSpread.label}
+            secondary={gustSpread.detail}
+            note="Foil runs feel cleaner when gust spread stays tight."
           />
           <PerformanceCard
             icon={CloudRain}
@@ -269,21 +269,15 @@ function DownwindMode({
       </div>
 
       <div>
-        <SectionKicker title="Run interpretation" />
         <div className="mt-4">
-          <OceanReadCard read={downwindRead} score={score.runQualityScore} />
+          <ThreeDayForecastSection snapshot={snapshot} zone={zone} />
         </div>
       </div>
 
       <div>
-        <SectionKicker title="Today's downwind periods" />
-        <div className="mt-4 space-y-3">
-          {buildForecastWindows(snapshot).map((window) => (
-            <ForecastWindowCard
-              key={`${window.label}-${window.wind}`}
-              window={window}
-            />
-          ))}
+        <SectionKicker title="Condition notes" />
+        <div className="mt-4">
+          <OceanReadCard read={downwindRead} score={score.runQualityScore} />
         </div>
       </div>
     </div>
@@ -372,7 +366,7 @@ function FishingMode({
       </div>
 
       <div>
-        <SectionKicker title="Next fishing periods" />
+        <SectionKicker title="3-day fishing forecast" />
         <div className="mt-4">
           <ThreeDayForecastSection snapshot={snapshot} zone={zone} />
         </div>
@@ -400,30 +394,47 @@ function ThreeDayForecastSection({
           : "ocean-card-soft rounded-[1.25rem] border p-5"
       }
     >
-      <h2
-        className={
-          compact
-            ? "text-xl font-semibold tracking-normal text-[#102b3a]"
-            : "text-2xl font-semibold tracking-normal text-[#102b3a]"
-        }
-      >
-        Extended read
-      </h2>
-      <div className="mt-3 space-y-2">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2
+            className={
+              compact
+                ? "text-xl font-semibold tracking-normal text-[#102b3a]"
+                : "text-2xl font-semibold tracking-normal text-[#102b3a]"
+            }
+          >
+            3-day forecast
+          </h2>
+          <p className="mt-1 text-sm font-medium text-[#61747c]">
+            Wind, bumps, and rain stacked by day.
+          </p>
+        </div>
+        <StatusPill status={getZoneLabel(zone)} />
+      </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
         {days.map((day) => {
           const wind = parseWind(day.wind);
           const swell = parseSwell(day.swell);
           const call = classifyWindow(
-            Number.parseInt(wind.speed, 10),
-            Number.parseInt(wind.gust, 10),
-            Number.parseInt(day.rain, 10),
+            extractMaxNumber(wind.speed),
+            extractMaxNumber(wind.gust),
+            extractMaxNumber(day.rain),
           );
+          const tone = getWindToneFromText(wind.speed, wind.gust);
           return (
-            <article key={day.day} className="ocean-row rounded-2xl p-4">
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-lg font-semibold text-[#102b3a]">
-                  {day.day}
-                </p>
+            <article
+              key={day.day}
+              className="rounded-[1.15rem] border border-[#094c60]/10 bg-white/65 p-4 shadow-[0_14px_34px_rgba(7,35,45,0.05)]"
+            >
+              <div className="flex items-start justify-between gap-3 border-b border-[#094c60]/8 pb-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6b7d84]">
+                    {getZoneLabel(zone)}
+                  </p>
+                  <p className="mt-1 text-xl font-semibold text-[#102b3a]">
+                    {day.day}
+                  </p>
+                </div>
                 <div className={getReadClass(call)}>
                   <p className="text-[0.62rem] font-semibold uppercase tracking-[0.1em] opacity-65">
                     Condition
@@ -431,33 +442,23 @@ function ThreeDayForecastSection({
                   <p className="mt-0.5 text-base font-semibold">{call}</p>
                 </div>
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="flex items-center gap-3 rounded-xl border border-cyan-800/10 bg-cyan-50/55 px-3 py-3">
-                  <WindArrow degrees={cardinalToDegrees(wind.direction)} />
-                  <div>
-                    <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-cyan-900/65">
-                      Wind
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-cyan-950">
-                      {wind.direction} {wind.speed}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold text-amber-700">
-                      gust {wind.gust}
-                    </p>
-                  </div>
-                </div>
-                <ForecastMetric
+              <div className="mt-4 space-y-3">
+                <ForecastWindStack
+                  wind={wind}
+                  tone={tone}
+                />
+                <ForecastStackMetric
                   icon={Waves}
                   label="Bumps / sea"
                   value={swell.height}
                   detail={`${swell.period} · ${swell.direction}`}
                   tone="swell"
                 />
-                <ForecastMetric
+                <ForecastStackMetric
                   icon={CloudRain}
                   label="Rain"
                   value={day.rain}
-                  detail="risk"
+                  detail="probability"
                   tone="rain"
                 />
               </div>
@@ -576,7 +577,40 @@ function MiniStat({
   );
 }
 
-function ForecastMetric({
+function ForecastWindStack({
+  wind,
+  tone,
+}: {
+  wind: ReturnType<typeof parseWind>;
+  tone: WindTone;
+}) {
+  const classes = getWindToneClasses(tone);
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${classes.card}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <WindArrow degrees={cardinalToDegrees(wind.direction)} />
+          <div>
+            <p className={`text-[0.68rem] font-semibold uppercase tracking-[0.12em] ${classes.muted}`}>
+              Wind
+            </p>
+            <div className="mt-1 flex items-baseline gap-3">
+              <p className={`text-3xl font-semibold leading-none ${classes.text}`}>
+                {wind.direction}
+              </p>
+              <p className="text-lg font-semibold text-[#102b3a]">
+                {wind.speed}
+              </p>
+            </div>
+          </div>
+        </div>
+        <span className={classes.badge}>gust {wind.gust}</span>
+      </div>
+    </div>
+  );
+}
+
+function ForecastStackMetric({
   icon: Icon,
   label,
   value,
@@ -586,29 +620,81 @@ function ForecastMetric({
   icon: ElementType;
   label: string;
   value: string;
-  detail?: string;
-  tone: "swell" | "tide" | "rain";
+  detail: string;
+  tone: "swell" | "rain";
 }) {
   const toneClasses = {
     swell: "border-blue-800/10 bg-blue-50/55 text-blue-950",
-    tide: "border-indigo-800/10 bg-indigo-50/55 text-indigo-950",
     rain: "border-teal-800/10 bg-teal-50/55 text-teal-950",
   };
   return (
-    <div
-      className={`flex items-center gap-3 rounded-xl border px-3 py-3 ${toneClasses[tone]}`}
-    >
-      <Icon className="size-4 shrink-0 opacity-70" />
-      <div>
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] opacity-65">
-          {label}
-        </p>
-        <p className="mt-1 text-lg font-semibold leading-none">{value}</p>
-        {detail ? (
-          <p className="mt-1 text-sm font-medium opacity-75">{detail}</p>
-        ) : null}
+    <div className={`rounded-2xl border px-4 py-3 ${toneClasses[tone]}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Icon className="size-4 shrink-0 opacity-70" />
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.12em] opacity-65">
+            {label}
+          </p>
+        </div>
+        <p className="text-xs font-semibold opacity-65">{detail}</p>
       </div>
+      <p className="mt-2 text-2xl font-semibold leading-none">{value}</p>
     </div>
+  );
+}
+
+const liveOceanCameras: Array<LiveCameraCardProps & { id: string }> = [
+  {
+    id: "kahului-harbor-cam",
+    title: "Harbor camera",
+    location: "Kahului Harbor",
+    status: "live",
+    timestamp: "",
+    visualRead: "Harbor check supports the finish read.",
+    tone: "harbor",
+  },
+  {
+    id: "north-shore-cam",
+    title: "Reef line camera",
+    location: "North Shore",
+    status: "live",
+    timestamp: "",
+    visualRead: "Look for whitecaps outside the reef.",
+    tone: "north",
+  },
+  {
+    id: "kihei-south-cam",
+    title: "South side camera",
+    location: "Kihei / South Side",
+    status: "live",
+    timestamp: "",
+    visualRead: "Useful for rain bands and leeward texture.",
+    tone: "south",
+  },
+];
+
+function LiveOceanSection({ snapshot }: { snapshot: OceanConditionSnapshot }) {
+  return (
+    <section className="ocean-card rounded-[1.5rem] border p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <Radio className="size-5 text-[#0d5968]" />
+            <h2 className="text-2xl font-semibold tracking-normal text-[#102b3a]">Live Ocean</h2>
+          </div>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f7078]">
+            Camera awareness for surface texture, rain bands, harbor cleanliness, and the Ocean Read.
+          </p>
+        </div>
+        <StatusPill status="Visual checks" live />
+      </div>
+
+      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+        {liveOceanCameras.map((camera) => (
+          <LiveCameraCard key={camera.id} {...camera} timestamp={formatTime(snapshot.generatedAt)} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -627,26 +713,32 @@ function HarborWindsSection({ harbors }: { harbors: HarborWindObservation[] }) {
 
 function HarborWindCard({ harbor }: { harbor: HarborWindObservation }) {
   const wind = windObservationToDisplay(harbor.observation);
+  const tone = getWindToneFromText(wind.speed, wind.gust);
+  const classes = getWindToneClasses(tone);
   return (
-    <article className="rounded-2xl border border-cyan-800/10 bg-cyan-50/45 p-4 text-cyan-950">
+    <article className={`rounded-2xl border p-4 ${classes.card}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-lg font-semibold leading-tight text-[#102b3a]">{harbor.name}</p>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.1em] text-cyan-900/60">{harbor.side} side</p>
+          <p className={`mt-1 text-xs font-semibold uppercase tracking-[0.1em] ${classes.muted}`}>{harbor.side} side</p>
         </div>
         <SourceFreshnessBadge source={harbor.observation.source} />
       </div>
-      <div className="mt-4 flex items-center gap-3">
-        <WindArrow degrees={wind.degrees} />
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <WindArrow degrees={wind.degrees} />
+          <div>
+            <p className={`text-4xl font-semibold leading-none ${classes.text}`}>{wind.direction}</p>
+            <p className="mt-1 text-xl font-semibold text-[#102b3a]">{wind.speed}</p>
+          </div>
+        </div>
         <div>
-          <p className="text-3xl font-semibold leading-none">{wind.direction}</p>
-          <p className="mt-1 text-xl font-semibold text-[#102b3a]">{wind.speed}</p>
-          <p className="mt-2 inline-flex rounded-full border border-amber-700/15 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+          <p className={classes.badge}>
             gust {wind.gust}
           </p>
         </div>
       </div>
-      <p className="mt-3 text-sm leading-6 text-cyan-900/70">{harbor.note}</p>
+      <p className="mt-3 text-sm leading-6 text-[#536b73]">{harbor.note}</p>
     </article>
   );
 }
@@ -668,8 +760,10 @@ function LiveWindCard({
   wind: WindDisplay;
   snapshot: OceanConditionSnapshot;
 }) {
+  const tone = getWindToneFromText(wind.speed, wind.gust);
+  const classes = getWindToneClasses(tone);
   return (
-    <div className="rounded-[1.35rem] border border-cyan-800/10 bg-cyan-50/60 p-5 shadow-[0_16px_38px_rgba(8,74,92,0.08)]">
+    <div className={`rounded-[1.35rem] border p-5 shadow-[0_16px_38px_rgba(8,74,92,0.08)] ${classes.card}`}>
       <div className="flex items-start justify-between gap-3">
         <CategoryPill label="Wind" tone="wind" />
         <SourceFreshnessBadge source={snapshot.wind.source} />
@@ -677,18 +771,18 @@ function LiveWindCard({
       <div className="mt-5 flex items-center gap-4">
         <WindArrow degrees={wind.degrees} large />
         <div>
-          <p className="text-5xl font-semibold leading-none tracking-[-0.01em] text-cyan-950">
+          <p className={`text-5xl font-semibold leading-none tracking-[-0.01em] ${classes.text}`}>
             {wind.direction}
           </p>
           <p className="mt-2 text-2xl font-semibold text-[#102b3a]">
             {wind.speed}
           </p>
-          <p className="mt-2 inline-flex rounded-full border border-amber-700/15 bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-800">
+          <p className={`mt-2 ${classes.badge}`}>
             gust {wind.gust}
           </p>
         </div>
       </div>
-      <p className="mt-4 text-xs font-medium text-cyan-900/65">
+      <p className={`mt-4 text-xs font-medium ${classes.muted}`}>
         Wind arrow shows flow coming from {wind.direction}.
       </p>
     </div>
@@ -830,85 +924,7 @@ function OceanReadCard({ read, score }: { read: string; score: number }) {
   );
 }
 
-type ForecastWindowView = {
-  label: string;
-  wind: string;
-  gust: string;
-  windDirection: string;
-  windDegrees: number;
-  swell: string;
-  tide: string;
-  rain: string;
-  read: WindowCall;
-};
-
 type WindowCall = "Solid" | "Mixed" | "Heavy";
-
-function ForecastWindowCard({ window }: { window: ForecastWindowView }) {
-  const swell = parseSwell(window.swell);
-  return (
-    <article className="ocean-row rounded-2xl p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[#6b7d84]">
-            Time
-          </p>
-          <p className="mt-1 text-base font-semibold leading-snug text-[#102b3a] sm:text-lg">
-            {window.label}
-          </p>
-        </div>
-        <div className={getReadClass(window.read)}>
-          <p className="text-[0.62rem] font-semibold uppercase tracking-[0.1em] opacity-65">
-            Condition
-          </p>
-          <p className="mt-0.5 text-base font-semibold">{window.read}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-[1.15fr_1fr] lg:grid-cols-[1.2fr_1fr_0.85fr_0.85fr]">
-        <div className="flex items-center gap-3 rounded-xl border border-cyan-800/10 bg-cyan-50/55 px-3 py-3">
-          <WindArrow degrees={window.windDegrees} />
-          <div>
-            <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-cyan-900/65">
-              Wind
-            </p>
-            <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <span className="text-2xl font-semibold leading-none text-cyan-950">
-                {window.windDirection}
-              </span>
-              <span className="text-base font-semibold text-[#102b3a]">
-                {window.wind}
-              </span>
-              <span className="rounded-full border border-amber-700/15 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                gust {window.gust}
-              </span>
-            </div>
-          </div>
-        </div>
-        <ForecastMetric
-          icon={Waves}
-          label="Bumps / sea"
-          value={swell.height}
-          detail={`${swell.period} · ${swell.direction}`}
-          tone="swell"
-        />
-        <ForecastMetric
-          icon={Fish}
-          label="Tide"
-          value={capitalize(window.tide)}
-          tone="tide"
-        />
-        <ForecastMetric
-          icon={CloudRain}
-          label="Rain"
-          value={window.rain}
-          detail="risk"
-          tone="rain"
-        />
-      </div>
-    </article>
-  );
-}
 
 function SourceFreshnessBadge({
   source,
@@ -959,26 +975,28 @@ function CategoryPill({
 }
 
 function LiveWindBlock({ label, wind }: { label: string; wind: WindDisplay }) {
+  const tone = getWindToneFromText(wind.speed, wind.gust);
+  const classes = getWindToneClasses(tone);
   return (
-    <div className="rounded-2xl border border-cyan-800/10 bg-cyan-50/55 p-5">
+    <div className={`rounded-2xl border p-5 ${classes.card}`}>
       <div className="flex items-center gap-4">
         <WindArrow degrees={wind.degrees} large />
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <CategoryPill label="Wind" tone="wind" />
-            <span className="text-xs font-semibold uppercase tracking-[0.1em] text-cyan-900/70">
+            <span className={`text-xs font-semibold uppercase tracking-[0.1em] ${classes.muted}`}>
               {label}
             </span>
           </div>
           <div className="mt-3">
-            <p className="text-5xl font-semibold leading-none text-cyan-950">
+            <p className={`text-5xl font-semibold leading-none ${classes.text}`}>
               {wind.direction}
             </p>
             <p className="mt-2 text-2xl font-semibold text-[#102b3a]">
               {wind.speed}
             </p>
           </div>
-          <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-700/15 bg-amber-50 px-3 py-1 text-sm font-semibold text-amber-800">
+          <div className={`mt-3 ${classes.badge}`}>
             <span>GUST</span>
             <span>{wind.gust}</span>
           </div>
@@ -1138,16 +1156,13 @@ function buildDownwindRead(
     Number.isFinite(gustNumber) && gustNumber >= 28
       ? "Gusts near 30 kt make it punchy."
       : "Gust spread looks manageable.";
-  const windowText = score.bestLaunchWindow
-    ? `Best raw window starts around ${formatTime(score.bestLaunchWindow.startTime)}.`
-    : "Launch window is not available yet.";
 
   if (score.runQualityScore >= 70) {
-    return `${wind.direction} ${wind.speed} is enough for the ${route}. Bumps look ${alignment} with ${swell.height} @ ${swell.period} from ${swell.direction}. ${gustText} ${windowText}`;
+    return `${wind.direction} ${wind.speed} is enough for the ${route}. Bumps look ${alignment} with ${swell.height} @ ${swell.period} from ${swell.direction}. ${gustText}`;
   }
 
   if (score.runQualityScore >= 45) {
-    return `${wind.direction} ${wind.speed} can work, but bumps may be uneven. ${getCrossingSwellNote(wind, swell.direction)} ${rain} rain risk could affect wind quality. ${windowText}`;
+    return `${wind.direction} ${wind.speed} can work, but bumps may be uneven. ${getCrossingSwellNote(wind, swell.direction)} ${rain} rain risk could affect wind quality.`;
   }
 
   return `${getZoneLabel(zone)} downwind looks marginal. Wind is ${wind.direction} ${wind.speed}, bumps are ${swell.height} @ ${swell.period}, and the finish needs a tide/harbor check.`;
@@ -1199,7 +1214,7 @@ function getRainImpact(snapshot: OceanConditionSnapshot) {
 }
 
 function getDriftQuality(wind: WindDisplay, snapshot: OceanConditionSnapshot) {
-  const speed = Number.parseInt(wind.speed, 10);
+  const speed = extractMaxNumber(wind.speed) ?? 0;
   if (snapshot.tide.trend === "falling" && speed >= 10 && speed <= 20)
     return "Steady";
   if (speed > 22) return "Fast / choppy";
@@ -1216,65 +1231,84 @@ function getSeaComfort(height: string, zone: Zone) {
   return "Exposed";
 }
 
+function getGustSpread(wind: WindDisplay) {
+  const speed = extractMaxNumber(wind.speed);
+  const gust = extractMaxNumber(wind.gust);
+  if (speed === null || gust === null)
+    return { label: "Pending", detail: "gust data not available" };
+
+  const spread = Math.max(0, gust - speed);
+  if (spread <= 5)
+    return { label: `${spread} kt`, detail: "tight spread, steadier flow" };
+  if (spread <= 10)
+    return { label: `${spread} kt`, detail: "noticeable punch in the gusts" };
+  return { label: `${spread} kt`, detail: "wide spread, expect punchy sections" };
+}
+
+function getWindToneFromText(speed: string, gust?: string): WindTone {
+  const peak = Math.max(
+    extractMaxNumber(speed) ?? 0,
+    extractMaxNumber(gust ?? "") ?? 0,
+  );
+  if (peak >= 38) return "wild";
+  if (peak >= 30) return "strong";
+  if (peak >= 22) return "medium";
+  if (peak >= 12) return "clean";
+  return "light";
+}
+
+function getWindToneClasses(tone: WindTone) {
+  const classes = {
+    light: {
+      card: "border-emerald-800/10 bg-emerald-50/55 text-emerald-950",
+      text: "text-emerald-950",
+      muted: "text-emerald-900/65",
+      badge:
+        "inline-flex items-center gap-2 rounded-full border border-emerald-700/15 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-emerald-800",
+    },
+    clean: {
+      card: "border-cyan-800/10 bg-cyan-50/60 text-cyan-950",
+      text: "text-cyan-950",
+      muted: "text-cyan-900/65",
+      badge:
+        "inline-flex items-center gap-2 rounded-full border border-cyan-700/15 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-cyan-800",
+    },
+    medium: {
+      card: "border-amber-800/12 bg-amber-50/65 text-amber-950",
+      text: "text-amber-950",
+      muted: "text-amber-900/70",
+      badge:
+        "inline-flex items-center gap-2 rounded-full border border-amber-700/18 bg-amber-100/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-amber-900",
+    },
+    strong: {
+      card: "border-orange-900/15 bg-orange-50/70 text-orange-950",
+      text: "text-orange-950",
+      muted: "text-orange-900/70",
+      badge:
+        "inline-flex items-center gap-2 rounded-full border border-orange-800/20 bg-orange-100/85 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-orange-950",
+    },
+    wild: {
+      card: "border-violet-900/15 bg-violet-50/70 text-violet-950",
+      text: "text-violet-950",
+      muted: "text-violet-900/70",
+      badge:
+        "inline-flex items-center gap-2 rounded-full border border-violet-800/20 bg-violet-100/85 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-violet-950",
+    },
+  };
+  return classes[tone];
+}
+
+function extractMaxNumber(value: string) {
+  const values = [...value.matchAll(/\d+(?:\.\d+)?/g)].map((match) =>
+    Number.parseFloat(match[0]),
+  );
+  const finiteValues = values.filter(Number.isFinite);
+  return finiteValues.length ? Math.max(...finiteValues) : null;
+}
+
 function directionDifference(a: number, b: number) {
   const diff = Math.abs(a - b) % 360;
   return diff > 180 ? 360 - diff : diff;
-}
-
-function buildForecastWindows(
-  snapshot: OceanConditionSnapshot,
-): ForecastWindowView[] {
-  const swell = formatSwell(snapshot);
-  const liveWindows = snapshot.forecastWindows.slice(0, 5).map((window) => {
-    const direction = window.windDirectionCardinal ?? "E";
-    const windSpeed =
-      window.windSpeedKt !== null ? `${window.windSpeedKt} kt` : "-";
-    const gust = window.windGustKt !== null ? `${window.windGustKt} kt` : "-";
-    return {
-      label: formatTimeRange(window.startTime, window.endTime),
-      wind: windSpeed,
-      gust,
-      windDirection: direction,
-      windDegrees: window.windDirectionDeg ?? cardinalToDegrees(direction),
-      swell,
-      tide: snapshot.tide.trend,
-      rain:
-        window.precipitationChancePercent !== null
-          ? `${window.precipitationChancePercent}%`
-          : "-",
-      read: classifyWindow(
-        window.windSpeedKt,
-        window.windGustKt,
-        window.precipitationChancePercent,
-      ),
-    };
-  });
-
-  if (liveWindows.length >= 3) return liveWindows;
-
-  const fallbackWindows = buildThreeDayForecast(
-    snapshot.forecastWindows,
-    "windward",
-  ).map((day) => {
-    const wind = parseWind(day.wind);
-    return {
-      label: day.day,
-      wind: wind.speed,
-      gust: wind.gust,
-      windDirection: wind.direction,
-      windDegrees: cardinalToDegrees(wind.direction),
-      swell: day.swell,
-      tide: snapshot.tide.trend,
-      rain: day.rain,
-      read: classifyWindow(
-        Number.parseInt(wind.speed, 10),
-        Number.parseInt(wind.gust, 10),
-        Number.parseInt(day.rain, 10),
-      ),
-    };
-  });
-
-  return [...liveWindows, ...fallbackWindows].slice(0, 3);
 }
 
 function classifyWindow(
@@ -1366,23 +1400,6 @@ function formatTime(value: string) {
     timeZone: "Pacific/Honolulu",
     timeZoneName: "short",
   }).format(new Date(value));
-}
-
-function formatTimeRange(startValue: string, endValue: string) {
-  const start = new Date(startValue);
-  const end = new Date(endValue);
-  const startLabel = new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Pacific/Honolulu",
-  }).format(start);
-  const endLabel = new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Pacific/Honolulu",
-    timeZoneName: "short",
-  }).format(end);
-  return `${startLabel}-${endLabel}`;
 }
 
 function parseWind(value: string) {
