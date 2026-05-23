@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Downwind AI",
-  description: "Real-time ocean intelligence for downwind and ocean athletes.",
+  title: "Ocean State",
+  description: "Live ocean state for Maui riders and ocean users.",
 };
 
 export default function RootLayout({

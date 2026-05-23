@@ -45,6 +45,16 @@ export interface SwellObservation {
   source: SourceMeta;
 }
 
+export interface SeaEnergyObservation {
+  label: "groundswell" | "bump-energy";
+  heightFt: number | null;
+  periodSec: number | null;
+  directionDeg: number | null;
+  directionCardinal: string | null;
+  description: string;
+  source: SourceMeta;
+}
+
 export interface TideEvent {
   time: string;
   heightFt: number;
@@ -59,6 +69,16 @@ export interface TideObservation {
   nextHigh: TideEvent | null;
   nextLow: TideEvent | null;
   predictions: TideEvent[];
+  source: SourceMeta;
+}
+
+export interface CurrentObservation {
+  stationId: string;
+  stationName: string;
+  speedKt: number | null;
+  directionDeg: number | null;
+  directionCardinal: string | null;
+  trend: "flood" | "ebb" | "slack" | "unknown";
   source: SourceMeta;
 }
 
@@ -104,6 +124,8 @@ export interface RouteConfig {
     primaryBuoyId: string;
     finishWindStationId?: string;
     tideStationId: string;
+    // NOAA CO-OPS currents station/bin placeholders should be configured per channel/harbor.
+    currentStationId?: string;
     nwsPoint: GeoPoint;
   };
 }
@@ -113,7 +135,10 @@ export interface OceanConditionSnapshot {
   generatedAt: string;
   wind: WindObservation;
   swell: SwellObservation;
+  groundswell: SeaEnergyObservation;
+  bumpEnergy: SeaEnergyObservation;
   tide: TideObservation;
+  current: CurrentObservation;
   harborWinds: HarborWindObservation[];
   forecastWindows: ForecastWindow[];
   alerts: WeatherAlert[];

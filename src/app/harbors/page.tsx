@@ -1,8 +1,8 @@
-import { ExtendedForecastOverview, normalizeZone } from "@/components/ocean/activity-forecast";
+import { ActivityForecastPage, normalizeZone } from "@/components/ocean/activity-forecast";
 import { OceanAppShell } from "@/components/ocean/shell";
 import { getOceanIntelligence } from "@/lib/ocean";
 
-export default async function ForecastPage({
+export default async function HarborsPage({
   searchParams,
 }: {
   searchParams: Promise<{ zone?: string | string[] }>;
@@ -11,8 +11,8 @@ export default async function ForecastPage({
   const selectedZone = normalizeZone((await searchParams).zone);
 
   return (
-    <OceanAppShell active="/forecast" oceanStatus={getOceanStatus(snapshot)} marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
-      <ExtendedForecastOverview selectedZone={selectedZone} snapshot={snapshot} />
+    <OceanAppShell active="/harbors" oceanStatus={getOceanStatus(snapshot)} marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
+      <ActivityForecastPage activity="harbors" selectedZone={selectedZone} snapshot={snapshot} />
     </OceanAppShell>
   );
 }

@@ -1,13 +1,11 @@
 import Link from "next/link";
 import type { ElementType } from "react";
 import {
-  Anchor,
   ArrowUp,
   CloudRain,
+  Compass,
   Navigation,
   Radio,
-  ShieldAlert,
-  Ship,
   Waves,
 } from "lucide-react";
 
@@ -16,11 +14,12 @@ import type {
   ForecastWindow,
   HarborWindObservation,
   OceanConditionSnapshot,
-  RouteScore,
 } from "@/lib/ocean";
 
-type Activity = "downwind" | "fishing";
+type ObservationMode = "shores" | "channels" | "harbors";
+type Activity = ObservationMode | "downwind" | "fishing";
 type Zone = "windward" | "leeward";
+type Shore = "north" | "south" | "west";
 type WindTone = "light" | "clean" | "medium" | "strong" | "wild";
 type SourceLike = {
   source: string;
@@ -34,52 +33,57 @@ type SourceLike = {
 export function ActivityForecastPage({
   activity,
   selectedZone,
+  selectedShore = "north",
   snapshot,
 }: {
   activity: Activity;
   selectedZone: Zone;
+  selectedShore?: Shore;
   snapshot: OceanConditionSnapshot;
 }) {
-  const zones: Zone[] = ["windward", "leeward"];
-  const zoneLabel = getZoneLabel(selectedZone);
+  const mode = normalizeMode(activity);
+  const shores: Shore[] = ["north", "south", "west"];
+  const activeShore = getShoreConfig(selectedShore);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <div className="flex gap-2">
-        {zones.map((zone) => (
-          <ZoneChip
-            key={zone}
-            zone={zone}
-            active={zone === selectedZone}
-            href={`/${activity}?zone=${zone}`}
-          />
-        ))}
-      </div>
+      {mode === "shores" ? (
+        <div className="flex gap-2">
+          {shores.map((shore) => (
+            <ShoreChip
+              key={shore}
+              shore={shore}
+              active={shore === selectedShore}
+              href={`/shores?shore=${shore}`}
+            />
+          ))}
+        </div>
+      ) : null}
       <section className="ocean-card rounded-[1.5rem] border p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4f626a]">
-              {zoneLabel}
+              {getModeKicker(mode, activeShore)}
             </p>
             <h2 className="mt-1 text-2xl font-semibold tracking-normal text-[#102b3a]">
-              {zoneLabel}{" "}
-              {activity === "downwind" ? "Downwind Read" : "Boats / Channels"}
+              {getModeTitle(mode, activeShore)}
             </h2>
           </div>
           <StatusPill status={getLiveStatus(snapshot)} live />
         </div>
-        {activity === "downwind" ? (
-          <DownwindMode
-            zone={selectedZone}
+        {mode === "shores" ? (
+          <ShoresMode
+            shore={activeShore}
+            zoneWind={getZoneWind(snapshot, activeShore.zone)}
+            snapshot={snapshot}
+          />
+        ) : mode === "channels" ? (
+          <ChannelsMode
             zoneWind={getZoneWind(snapshot, selectedZone)}
             snapshot={snapshot}
           />
         ) : (
-          <FishingMode
-            zone={selectedZone}
-            zoneWind={getZoneWind(snapshot, selectedZone)}
-            snapshot={snapshot}
-          />
+          <HarborsMode snapshot={snapshot} />
         )}
       </section>
     </div>
@@ -88,40 +92,52 @@ export function ActivityForecastPage({
 
 export function HomeForecastOverview({
   snapshot,
-  selectedZone = "windward",
+  selectedShore = "north",
 }: {
   snapshot: OceanConditionSnapshot;
-  selectedZone?: Zone;
+  selectedShore?: Shore;
 }) {
-  const wind = getZoneWind(snapshot, selectedZone);
-  const swell = parseSwell(formatSwell(snapshot));
-  const zones: Zone[] = ["windward", "leeward"];
+  const shores: Shore[] = ["north", "south", "west"];
+  const shore = getShoreConfig(selectedShore);
+  const wind = getZoneWind(snapshot, shore.zone);
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6">
-      <div className="flex gap-2">
-        {zones.map((zone) => (
-          <ZoneChip
-            key={zone}
-            zone={zone}
-            active={zone === selectedZone}
-            href={`/home?zone=${zone}`}
+      <div className="flex flex-wrap gap-2">
+        {shores.map((item) => (
+          <ShoreChip
+            key={item}
+            shore={item}
+            active={item === selectedShore}
+            href={`/home?shore=${item}`}
           />
         ))}
       </div>
+
       <section className="hero-ocean ocean-card overflow-hidden rounded-[1.5rem] border p-6 sm:p-7">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#4f626a]">
+              {shore.secondary}
+            </p>
+            <h1 className="mt-1 text-3xl font-semibold tracking-normal text-[#102b3a]">
+              {shore.label} live ocean
+            </h1>
+          </div>
+          <StatusPill status={getLiveStatus(snapshot)} live />
+        </div>
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
           <LiveWindCard wind={wind} snapshot={snapshot} />
-          <LiveSeaInlineCard swell={swell} snapshot={snapshot} />
+          <LiveSeaInlineCard snapshot={snapshot} />
         </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
           <TideCard snapshot={snapshot} />
+          <CurrentCard snapshot={snapshot} />
           <RainRiskCard snapshot={snapshot} />
         </div>
       </section>
 
       <LiveOceanSection snapshot={snapshot} />
-
     </div>
   );
 }
@@ -129,11 +145,9 @@ export function HomeForecastOverview({
 export function ExtendedForecastOverview({
   selectedZone,
   snapshot,
-  score,
 }: {
   selectedZone: Zone;
   snapshot: OceanConditionSnapshot;
-  score: RouteScore;
 }) {
   const zones: Zone[] = ["windward", "leeward"];
 
@@ -153,38 +167,39 @@ export function ExtendedForecastOverview({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-3xl font-semibold tracking-normal text-[#102b3a]">
-              {getZoneLabel(selectedZone)} extended forecast
+              Forecast Models
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f7078]">
-              Three-day outlook for wind, bumps, tide, rain, and the activity
-              condition.
+              Lightweight model timeline. Live observations remain primary.
             </p>
           </div>
-          <StatusPill status={`Score ${score.runQualityScore}`} />
+          <StatusPill status="Model timeline" />
         </div>
         <div className="mt-5">
-          <ThreeDayForecastSection snapshot={snapshot} zone={selectedZone} />
+          <ModelTimeline snapshot={snapshot} zone={selectedZone} />
         </div>
       </section>
     </div>
   );
 }
 
-function DownwindMode({
-  zone,
+function ShoresMode({
+  shore,
   zoneWind,
   snapshot,
 }: {
-  zone: Zone;
+  shore: ShoreConfig;
   zoneWind: WindDisplay;
   snapshot: OceanConditionSnapshot;
 }) {
-  const swell = parseSwell(formatSwell(snapshot));
+  const bumpEnergy = formatSeaEnergy(snapshot.bumpEnergy);
+  const groundswell = formatSeaEnergy(snapshot.groundswell);
+  const energyDirection = snapshot.bumpEnergy.directionCardinal ?? snapshot.swell.directionCardinal ?? "dir -";
 
   return (
     <div className="mt-6 space-y-5">
       <div>
-        <SectionKicker title="How will the run feel?" />
+        <SectionKicker title={`${shore.label} live observations`} />
         <div className="mt-4">
           <LiveWindBlock label="Wind now" wind={zoneWind} />
         </div>
@@ -193,18 +208,26 @@ function DownwindMode({
           items={[
             {
               icon: Waves,
-              label: "Bumps / sea",
+              label: "Bump energy",
               tone: "swell",
-              primary: swell.height,
-              secondary: `${swell.period} period · ${swell.direction} direction`,
-              source: snapshot.swell.source,
+              primary: bumpEnergy.height,
+              secondary: `${bumpEnergy.period} · ${bumpEnergy.direction} · 4-9s wind sea`,
+              source: snapshot.bumpEnergy.source,
+            },
+            {
+              icon: Waves,
+              label: "Groundswell",
+              tone: "swell",
+              primary: groundswell.height,
+              secondary: `${groundswell.period} · ${groundswell.direction} · long-period`,
+              source: snapshot.groundswell.source,
             },
             {
               icon: Navigation,
-              label: "Swell line",
+              label: "Wind / swell angle",
               tone: "swell",
-              primary: getSwellAlignment(zoneWind, swell.direction),
-              secondary: `${swell.direction} swell vs ${zoneWind.direction} wind`,
+              primary: getSwellAlignment(zoneWind, energyDirection),
+              secondary: `${energyDirection} sea energy vs ${zoneWind.direction} wind`,
               source: snapshot.swell.source,
             },
             {
@@ -216,199 +239,109 @@ function DownwindMode({
               source: snapshot.forecastWindows[0]?.source,
             },
             {
-              icon: Anchor,
-              label: "Finish tide",
-              tone: "tide",
-              primary: snapshot.tide.trend,
-              secondary: `Kahului ${snapshot.tide.currentWaterLevelFt ?? "-"} ft`,
-              source: snapshot.tide.source,
+              icon: Compass,
+              label: "Current",
+              tone: "current",
+              primary: formatCurrent(snapshot),
+              secondary: `${snapshot.current.trend} · ${snapshot.current.stationName}`,
+              source: snapshot.current.source,
             },
           ]}
         />
-      </div>
-
-      <div>
-        <div className="mt-4">
-          <ThreeDayForecastSection snapshot={snapshot} zone={zone} />
-        </div>
       </div>
     </div>
   );
 }
 
-function FishingMode({
-  zone,
+function ChannelsMode({
   zoneWind,
   snapshot,
 }: {
-  zone: Zone;
   zoneWind: WindDisplay;
   snapshot: OceanConditionSnapshot;
 }) {
-  const swell = parseSwell(formatSwell(snapshot));
-
   return (
     <div className="mt-6 space-y-5">
-      <div>
-        <SectionKicker title="Boat conditions" />
-        <LiveDataList
-          className="mt-4"
-          items={[
-            {
-              icon: Navigation,
-              label: "Wind chop",
-              tone: "wind",
-              primary: zoneWind.direction,
-              secondary: zoneWind.speed,
-              meta: `gust ${zoneWind.gust}`,
-              source: snapshot.wind.source,
-            },
-            {
-              icon: Waves,
-              label: "Sea state",
-              tone: "swell",
-              primary: swell.height,
-              secondary: `${swell.period} · ${swell.direction}`,
-              source: snapshot.swell.source,
-            },
-            {
-              icon: Anchor,
-              label: "Tide movement",
-              tone: "tide",
-              primary: snapshot.tide.trend,
-              secondary: `${snapshot.tide.currentWaterLevelFt ?? "-"} ft current`,
-              source: snapshot.tide.source,
-            },
-            {
-              icon: CloudRain,
-              label: "Rain / squalls",
-              tone: "rain",
-              primary: formatRain(snapshot),
-              secondary: getRainImpact(snapshot),
-              source: snapshot.forecastWindows[0]?.source,
-            },
-            {
-              icon: ShieldAlert,
-              label: "Marine alerts",
-              tone: "alert",
-              primary: snapshot.alerts.length ? `${snapshot.alerts.length} active` : "None active",
-              secondary: snapshot.alerts[0]?.event ?? "No active warning in current data.",
-              source: snapshot.alerts[0]?.source,
-            },
-          ]}
-        />
-      </div>
-
       <ChannelWindsSection zoneWind={zoneWind} snapshot={snapshot} />
-
-      <HarborWindsSection harbors={snapshot.harborWinds} />
-
-      <div>
-        <SectionKicker title="3-day boat forecast" />
-        <div className="mt-4">
-          <ThreeDayForecastSection snapshot={snapshot} zone={zone} />
-        </div>
-      </div>
     </div>
   );
 }
 
-function ThreeDayForecastSection({
+function HarborsMode({ snapshot }: { snapshot: OceanConditionSnapshot }) {
+  return (
+    <div className="mt-6 space-y-5">
+      <HarborWindsSection harbors={snapshot.harborWinds} snapshot={snapshot} />
+    </div>
+  );
+}
+
+function ModelTimeline({
   snapshot,
   zone = "windward",
-  compact = false,
 }: {
   snapshot: OceanConditionSnapshot;
   zone?: Zone;
-  compact?: boolean;
 }) {
   const days = buildThreeDayForecast(snapshot.forecastWindows, zone);
+  const bumpEnergy = formatSeaEnergy(snapshot.bumpEnergy);
+  const groundswell = formatSeaEnergy(snapshot.groundswell);
 
   return (
-    <section
-      className={
-        compact
-          ? "ocean-card-soft rounded-[1.25rem] border p-4"
-          : "ocean-card-soft rounded-[1.25rem] border p-5"
-      }
-    >
+    <section className="overflow-hidden rounded-[1.25rem] border border-[#094c60]/14 bg-white shadow-[0_14px_32px_rgba(8,74,92,0.08)]">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2
-            className={
-              compact
-                ? "text-xl font-semibold tracking-normal text-[#102b3a]"
-                : "text-2xl font-semibold tracking-normal text-[#102b3a]"
-            }
-          >
-            3-day forecast
-          </h2>
-          <p className="mt-1 text-sm font-medium text-[#61747c]">
-            Wind, bumps, and rain stacked by day.
-          </p>
+        <div className="px-4 py-3">
+          <h2 className="text-xl font-semibold tracking-normal text-[#102b3a]">Model Timeline</h2>
+          <p className="mt-1 text-sm font-medium text-[#61747c]">Compact wind, sea energy, tide, and rain model rows.</p>
         </div>
         <StatusPill status={getZoneLabel(zone)} />
       </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+      <div className="border-t border-[#094c60]/10">
         {days.map((day) => {
           const wind = parseWind(day.wind);
-          const swell = parseSwell(day.swell);
-          const call = classifyWindow(
-            extractMaxNumber(wind.speed),
-            extractMaxNumber(wind.gust),
-            extractMaxNumber(day.rain),
-          );
           const tone = getWindToneFromText(wind.speed, wind.gust);
           return (
-            <article
+            <div
               key={day.day}
-              className="rounded-[1.15rem] border border-[#094c60]/10 bg-white/65 p-4 shadow-[0_14px_34px_rgba(7,35,45,0.05)]"
+              className="grid grid-cols-2 gap-x-3 gap-y-2 border-b border-[#094c60]/10 px-4 py-3 last:border-b-0 sm:grid-cols-4 lg:grid-cols-[1.05fr_1fr_0.95fr_0.95fr_0.8fr_0.75fr_0.85fr] lg:items-center"
             >
-              <div className="flex items-start justify-between gap-3 border-b border-[#094c60]/8 pb-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6b7d84]">
-                    {getZoneLabel(zone)}
-                  </p>
-                  <p className="mt-1 text-xl font-semibold text-[#102b3a]">
-                    {day.day}
-                  </p>
-                </div>
-                <div className={getReadClass(call)}>
-                  <p className="text-[0.62rem] font-semibold uppercase tracking-[0.1em] opacity-65">
-                    Condition
-                  </p>
-                  <p className="mt-0.5 text-base font-semibold">{call}</p>
-                </div>
-              </div>
-              <div className="mt-4 space-y-3">
-                <div className="overflow-hidden rounded-2xl border border-[#094c60]/10 bg-white/55">
-                  <ForecastWindLine wind={wind} tone={tone} />
-                  <ForecastMetricLine
-                    icon={Waves}
-                    label="Bumps / sea"
-                    value={swell.height}
-                    detail={`${swell.period} · ${swell.direction}`}
-                    tone="swell"
-                  />
-                  <ForecastMetricLine
-                    icon={CloudRain}
-                    label="Rain"
-                    value={day.rain}
-                    detail="probability"
-                    tone="rain"
-                  />
-                </div>
-              </div>
-              {!compact ? (
-                <p className="mt-3 text-sm leading-6 text-[#6b7d84]">
-                  {day.read}
-                </p>
-              ) : null}
-            </article>
+              <TimelineCell label="Window" value={day.day} detail={day.read} />
+              <TimelineWindCell wind={wind} tone={tone} />
+              <TimelineCell label="Bump energy" value={bumpEnergy.height} detail={`${bumpEnergy.period} · ${bumpEnergy.direction}`} />
+              <TimelineCell label="Groundswell" value={groundswell.height} detail={groundswell.meta} />
+              <TimelineCell label="Tide" value={snapshot.tide.trend} detail={`${snapshot.tide.currentWaterLevelFt ?? "-"} ft`} />
+              <TimelineCell label="Rain" value={day.rain} detail="probability" />
+              <TimelineCell label="Source" value="NWS" detail={snapshot.forecastWindows[0]?.source.freshnessMinutes !== undefined ? `${snapshot.forecastWindows[0].source.freshnessMinutes} min` : "model"} />
+            </div>
           );
         })}
       </div>
     </section>
+  );
+}
+
+function TimelineCell({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[#6b7d84]">{label}</p>
+      <p className="weather-data mt-1 truncate text-base leading-none text-[#102b3a] sm:text-lg">{value}</p>
+      <p className="mt-1 truncate text-xs font-semibold text-[#61747c]">{detail}</p>
+    </div>
+  );
+}
+
+function TimelineWindCell({ wind, tone }: { wind: ReturnType<typeof parseWind>; tone: WindTone }) {
+  const classes = getWindToneClasses(tone);
+  return (
+    <div className="min-w-0">
+      <p className="text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[#6b7d84]">Wind</p>
+      <div className="mt-1 flex items-center gap-2">
+        <WindArrow degrees={cardinalToDegrees(wind.direction)} className={classes.text} />
+        <div className="min-w-0">
+          <p className={`weather-data truncate text-xl leading-none ${classes.text}`}>{wind.direction}</p>
+          <p className="weather-data mt-1 truncate text-sm text-[#102b3a]">{wind.speed} · gust {wind.gust}</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -425,7 +358,7 @@ function SectionKicker({ title }: { title: string }) {
 type LiveDataListItem = {
   icon: ElementType;
   label: string;
-  tone: "wind" | "swell" | "tide" | "rain" | "alert";
+  tone: "wind" | "swell" | "tide" | "current" | "rain" | "alert";
   primary: string;
   secondary: string;
   meta?: string;
@@ -440,7 +373,7 @@ function LiveDataList({
   className?: string;
 }) {
   return (
-    <div className={`overflow-hidden rounded-[1.35rem] border border-[#094c60]/10 bg-white/60 shadow-[0_16px_38px_rgba(8,74,92,0.06)] ${className ?? ""}`}>
+    <div className={`overflow-hidden rounded-[1.35rem] border border-[#094c60]/14 bg-white shadow-[0_14px_32px_rgba(8,74,92,0.08)] dark:border-white/12 dark:bg-[#091d2b] ${className ?? ""}`}>
       {items.map((item) => (
         <LiveDataRow key={`${item.label}-${item.primary}`} item={item} />
       ))}
@@ -451,11 +384,12 @@ function LiveDataList({
 function LiveDataRow({ item }: { item: LiveDataListItem }) {
   const Icon = item.icon;
   const toneClasses = {
-    wind: "bg-cyan-50/60 text-cyan-950",
-    swell: "bg-blue-50/55 text-blue-950",
-    tide: "bg-indigo-50/55 text-indigo-950",
-    rain: "bg-teal-50/55 text-teal-950",
-    alert: "bg-orange-50/65 text-orange-950",
+    wind: "bg-[#ffe1d6] text-[#6f2717]",
+    swell: "bg-[#dbeafe] text-[#0f2f5f]",
+    tide: "bg-[#e0e7ff] text-[#263268]",
+    current: "bg-[#dbeafe] text-[#173b6d]",
+    rain: "bg-[#d7f3ee] text-[#0a463f]",
+    alert: "bg-[#ffedd5] text-[#7c2d12]",
   };
 
   return (
@@ -484,126 +418,60 @@ function LiveDataRow({ item }: { item: LiveDataListItem }) {
   );
 }
 
-function MiniStat({
-  label,
-  value,
-  tone,
-  featured = false,
-}: {
-  label: string;
-  value: string;
-  tone: "swell" | "wind" | "tide" | "rain";
-  featured?: boolean;
-}) {
-  const toneClasses = {
-    swell: "border-blue-800/10 bg-white/70 text-blue-950",
-    wind: "border-cyan-800/10 bg-white/70 text-cyan-950",
-    tide: "border-indigo-800/10 bg-white/70 text-indigo-950",
-    rain: "border-teal-800/10 bg-white/70 text-teal-950",
-  };
-  return (
-    <div className={`min-w-0 rounded-xl border px-2 sm:px-3 ${featured ? "py-4 text-center" : "py-2"} ${toneClasses[tone]}`}>
-      <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] opacity-70">
-        {label}
-      </p>
-      <p className={`weather-data mt-1 whitespace-nowrap leading-none ${featured ? "text-2xl sm:text-4xl" : "text-sm"}`}>{value}</p>
-    </div>
-  );
-}
-
-function ForecastWindLine({
-  wind,
-  tone,
-}: {
-  wind: ReturnType<typeof parseWind>;
-  tone: WindTone;
-}) {
-  const classes = getWindToneClasses(tone);
-  return (
-    <div className={`border-b border-[#094c60]/10 px-4 py-3 ${classes.card}`}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <WindArrow degrees={cardinalToDegrees(wind.direction)} className={classes.text} />
-          <div>
-            <p className={`text-[0.68rem] font-semibold uppercase tracking-[0.12em] ${classes.muted}`}>
-              Wind
-            </p>
-            <div className="mt-1 flex flex-col items-start gap-1">
-              <p className={`weather-data text-3xl leading-none ${classes.text}`}>
-                {wind.direction}
-              </p>
-              <p className="weather-data text-lg text-[#102b3a]">
-                {wind.speed}
-              </p>
-            </div>
-          </div>
-        </div>
-        <span className={`${classes.badge} weather-data self-start`}>gust {wind.gust}</span>
-      </div>
-    </div>
-  );
-}
-
-function ForecastMetricLine({
-  icon: Icon,
-  label,
-  value,
-  detail,
-  tone,
-}: {
-  icon: ElementType;
-  label: string;
-  value: string;
-  detail: string;
-  tone: "swell" | "rain";
-}) {
-  const toneClasses = {
-    swell: "text-blue-950",
-    rain: "text-teal-950",
-  };
-  return (
-    <div className={`border-b border-[#094c60]/10 px-4 py-3 last:border-b-0 ${toneClasses[tone]}`}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Icon className="size-4 shrink-0 opacity-70" />
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.12em] opacity-65">
-            {label}
-          </p>
-        </div>
-        <p className="text-xs font-semibold opacity-65">{detail}</p>
-      </div>
-      <p className="weather-data mt-2 text-2xl leading-none">{value}</p>
-    </div>
-  );
-}
-
 const liveOceanCameras: Array<LiveCameraCardProps & { id: string }> = [
   {
-    id: "kahului-harbor-cam",
-    title: "Harbor camera",
-    location: "Kahului Harbor",
+    id: "waiehu-cam",
+    title: "Wind line check",
+    location: "Waiehu",
     status: "live",
     timestamp: "",
-    visualRead: "Harbor check supports the finish read.",
-    tone: "harbor",
-  },
-  {
-    id: "north-shore-cam",
-    title: "Reef line camera",
-    location: "North Shore",
-    status: "live",
-    timestamp: "",
-    visualRead: "Look for whitecaps outside the reef.",
+    visualRead: "North-central coast texture and wind line verification.",
     tone: "north",
   },
   {
-    id: "kihei-south-cam",
-    title: "South side camera",
-    location: "Kihei / South Side",
+    id: "maliko-cam",
+    title: "Launch texture",
+    location: "Maliko",
     status: "live",
     timestamp: "",
-    visualRead: "Useful for rain bands and leeward texture.",
+    visualRead: "Useful for launch water, rain bands, and outside whitecaps.",
+    tone: "north",
+  },
+  {
+    id: "kihei-wailea-cam",
+    title: "South side texture",
+    location: "Kihei / Wailea",
+    status: "live",
+    timestamp: "",
+    visualRead: "Leeward wind texture and south-side visibility check.",
     tone: "south",
+  },
+  {
+    id: "harbor-cam",
+    title: "Entry / exit check",
+    location: "Harbor",
+    status: "live",
+    timestamp: "",
+    visualRead: "Harbor cleanliness, chop, and entry visibility.",
+    tone: "harbor",
+  },
+  {
+    id: "molokai-coast-cam",
+    title: "Crossing reference",
+    location: "Molokai Coast",
+    status: "live",
+    timestamp: "",
+    visualRead: "Channel horizon and outer island weather verification.",
+    tone: "north",
+  },
+  {
+    id: "hk-run-cam",
+    title: "Run corridor",
+    location: "HK Run",
+    status: "live",
+    timestamp: "",
+    visualRead: "Surface energy check for the downwind corridor.",
+    tone: "harbor",
   },
 ];
 
@@ -617,13 +485,13 @@ function LiveOceanSection({ snapshot }: { snapshot: OceanConditionSnapshot }) {
             <h2 className="text-2xl font-semibold tracking-normal text-[#102b3a]">Live Ocean</h2>
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[#5f7078]">
-            Camera awareness for surface texture, rain bands, harbor cleanliness, and the Ocean Read.
+            Visual confirmation for surface texture, rain bands, harbor cleanliness, and current ocean state.
           </p>
         </div>
         <StatusPill status="Visual checks" live />
       </div>
 
-      <div className="mt-5 grid gap-3 lg:grid-cols-3">
+      <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {liveOceanCameras.map((camera) => (
           <LiveCameraCard key={camera.id} {...camera} timestamp={formatTime(snapshot.generatedAt)} />
         ))}
@@ -648,20 +516,28 @@ function ChannelWindsSection({
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         <ChannelWindCard
           name="Pailolo Channel"
-          detail="Maui to Molokai water"
+          detail="Maui -> Molokai"
           wind={pailoloWind}
           source={getChannelSource("Pailolo Channel", snapshot)}
+          snapshot={snapshot}
         />
         <ChannelWindCard
           name="Ka'iwi Channel"
-          detail="Oahu to Molokai water"
+          detail="Molokai -> Oahu"
           wind={kaiwiWind}
           source={getChannelSource("Kaiwi Channel", snapshot)}
+          snapshot={snapshot}
+        />
+        <ChannelWindCard
+          name="Alenuihaha Channel"
+          detail="Maui -> Hawai'i"
+          wind={getChannelWind("alenuihaha", snapshot, zoneWind)}
+          source={getChannelSource("Alenuihaha Channel", snapshot)}
+          snapshot={snapshot}
         />
       </div>
       <p className="mt-3 text-sm leading-6 text-[#5f7078]">
-        Channel cards are prepared for dedicated NOAA marine zone / station mapping.
-        NOAA CWF zones: PHZ120 Pailolo Channel and PHZ116 Kaiwi Channel.
+        Channel observations prioritize available live sources. NOAA marine zone references are shown for model context.
       </p>
     </section>
   );
@@ -672,29 +548,29 @@ function ChannelWindCard({
   detail,
   wind,
   source,
+  snapshot,
 }: {
   name: string;
   detail: string;
   wind: WindDisplay;
   source: SourceLike;
+  snapshot: OceanConditionSnapshot;
 }) {
   const tone = getWindToneFromText(wind.speed, wind.gust);
   const classes = getWindToneClasses(tone);
+  const bumpEnergy = formatSeaEnergy(snapshot.bumpEnergy);
   return (
-    <article className={`rounded-2xl border p-5 ${classes.card}`}>
+    <article className="ocean-card rounded-2xl border p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xl font-semibold leading-tight text-[#102b3a]">{name}</p>
-          <p className={`mt-1 text-xs font-semibold uppercase tracking-[0.1em] ${classes.muted}`}>
+          <p className="text-2xl font-semibold uppercase leading-none tracking-[0.04em] text-[#102b3a]">{getChannelShortName(name)}</p>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-[#5f7078]">
             {detail}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Ship className={`size-5 ${classes.text}`} />
-          <SourceFreshnessBadge source={source} />
-        </div>
+        <SourceFreshnessBadge source={source} />
       </div>
-      <div className="mt-5 flex items-center gap-4">
+      <div className={`mt-4 flex items-center gap-4 rounded-2xl border p-4 ${classes.card}`}>
         <WindArrow degrees={wind.degrees} large className={classes.text} />
         <div>
           <p className={`weather-data text-5xl leading-none ${classes.text}`}>
@@ -706,37 +582,79 @@ function ChannelWindCard({
           <p className={`mt-2 ${classes.badge} weather-data`}>gust {wind.gust}</p>
         </div>
       </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <ConditionMetric label="Bump energy" value={bumpEnergy.height} detail={`${bumpEnergy.period} · ${bumpEnergy.direction}`} />
+        <ConditionMetric label="Current" value={formatCurrent(snapshot)} detail={snapshot.current.trend} />
+        <ConditionMetric label="Tide influence" value={snapshot.tide.trend} detail={`${snapshot.tide.currentWaterLevelFt ?? "-"} ft`} />
+        <ConditionMetric label="Rain / squalls" value={formatRain(snapshot)} detail={getRainImpact(snapshot)} />
+      </div>
+      <p className="mt-3 text-sm font-semibold leading-5 text-[#536b73]">
+        {getChannelContext(wind, bumpEnergy.height)}
+      </p>
     </article>
   );
 }
 
-function HarborWindsSection({ harbors }: { harbors: HarborWindObservation[] }) {
+function ConditionMetric({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-xl border border-[#094c60]/10 bg-white/55 px-3 py-2">
+      <p className="text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-[#536b73]">
+        {label}
+      </p>
+      <p className="weather-data mt-1 text-lg leading-none text-[#102b3a]">{value}</p>
+      <p className="mt-1 text-xs font-semibold text-[#536b73]">{detail}</p>
+    </div>
+  );
+}
+
+function HarborWindsSection({
+  harbors,
+  snapshot,
+}: {
+  harbors: HarborWindObservation[];
+  snapshot: OceanConditionSnapshot;
+}) {
   return (
     <section>
-      <SectionKicker title="Harbor wind by launch" />
+      <SectionKicker title="Harbor conditions" />
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {harbors.map((harbor) => (
-          <HarborWindCard key={harbor.id} harbor={harbor} />
+          <HarborWindCard key={harbor.id} harbor={harbor} snapshot={snapshot} />
         ))}
       </div>
     </section>
   );
 }
 
-function HarborWindCard({ harbor }: { harbor: HarborWindObservation }) {
+function HarborWindCard({
+  harbor,
+  snapshot,
+}: {
+  harbor: HarborWindObservation;
+  snapshot: OceanConditionSnapshot;
+}) {
   const wind = windObservationToDisplay(harbor.observation);
   const tone = getWindToneFromText(wind.speed, wind.gust);
   const classes = getWindToneClasses(tone);
+  const bumpEnergy = formatSeaEnergy(snapshot.bumpEnergy);
   return (
-    <article className={`rounded-2xl border p-4 ${classes.card}`}>
+    <article className="ocean-card rounded-2xl border p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-lg font-semibold leading-tight text-[#102b3a]">{harbor.name}</p>
-          <p className={`mt-1 text-xs font-semibold uppercase tracking-[0.1em] ${classes.muted}`}>{harbor.side} side</p>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.1em] text-[#5f7078]">{harbor.side} side</p>
         </div>
         <SourceFreshnessBadge source={harbor.observation.source} />
       </div>
-      <div className="mt-4 flex items-start gap-3">
+      <div className={`mt-4 flex items-start gap-3 rounded-2xl border p-4 ${classes.card}`}>
         <div className="flex items-center gap-3">
           <WindArrow degrees={wind.degrees} className={classes.text} />
           <div>
@@ -748,7 +666,13 @@ function HarborWindCard({ harbor }: { harbor: HarborWindObservation }) {
           </div>
         </div>
       </div>
-      <p className="mt-3 text-sm leading-6 text-[#536b73]">{harbor.note}</p>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <ConditionMetric label="Tide / current" value={formatCurrent(snapshot)} detail={`${snapshot.tide.trend} tide`} />
+        <ConditionMetric label="Entry texture" value={bumpEnergy.height} detail={`${bumpEnergy.period} · ${bumpEnergy.direction}`} />
+        <ConditionMetric label="Visibility / rain" value={formatRain(snapshot)} detail={getRainImpact(snapshot)} />
+        <ConditionMetric label="Camera" value={getHarborCameraLabel(harbor)} detail="visual verification" />
+      </div>
+      <p className="mt-3 text-sm font-semibold leading-5 text-[#536b73]">{getHarborContext(harbor, wind)}</p>
     </article>
   );
 }
@@ -773,12 +697,12 @@ function LiveWindCard({
   const tone = getWindToneFromText(wind.speed, wind.gust);
   const classes = getWindToneClasses(tone);
   return (
-    <div className={`rounded-[1.35rem] border p-5 shadow-[0_16px_38px_rgba(8,74,92,0.08)] ${classes.card}`}>
+    <div className="ocean-card rounded-[1.35rem] border p-4 shadow-[0_16px_38px_rgba(8,74,92,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <CategoryPill label="Wind" tone="wind" />
         <SourceFreshnessBadge source={snapshot.wind.source} />
       </div>
-      <div className="mt-5 flex items-center gap-4">
+      <div className={`mt-4 flex items-center gap-4 rounded-2xl border p-5 ${classes.card}`}>
         <WindArrow degrees={wind.degrees} large className={classes.text} />
         <div>
           <p className={`weather-data text-5xl leading-none tracking-normal ${classes.text}`}>
@@ -799,29 +723,68 @@ function LiveWindCard({
   );
 }
 
-function LiveSeaInlineCard({
-  swell,
-  snapshot,
-}: {
-  swell: ReturnType<typeof parseSwell>;
-  snapshot: OceanConditionSnapshot;
-}) {
+function LiveSeaInlineCard({ snapshot }: { snapshot: OceanConditionSnapshot }) {
+  const bumpEnergy = formatSeaEnergy(snapshot.bumpEnergy);
+  const groundswell = formatSeaEnergy(snapshot.groundswell);
+
   return (
-    <section className="rounded-[1.35rem] border border-blue-800/10 bg-blue-50/45 p-5 shadow-[0_16px_38px_rgba(8,74,92,0.06)]">
+    <section className="rounded-[1.35rem] border border-blue-800/18 bg-[#dbeafe] p-5 shadow-[0_12px_28px_rgba(8,74,92,0.08)] dark:border-blue-200/20 dark:bg-[#0c2940]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 pt-1">
           <Waves className="size-5 text-blue-700" />
-          <CategoryPill label="Sea / bumps" tone="swell" />
+          <CategoryPill label="Sea energy" tone="swell" />
         </div>
         <SourceFreshnessBadge source={snapshot.swell.source} />
       </div>
-      <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
-        <MiniStat label="Size" value={swell.height} tone="swell" featured />
-        <MiniStat label="Period" value={swell.period} tone="swell" featured />
-        <MiniStat label="Dir" value={swell.direction} tone="swell" featured />
+      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-blue-900/15 bg-white/70 p-4 dark:border-blue-200/15 dark:bg-[#102f46]">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-900/65">
+            Bumps / wind sea
+          </p>
+          <p className="weather-data mt-2 text-4xl leading-none text-blue-950">
+            {bumpEnergy.height}
+          </p>
+          <p className="weather-data mt-2 text-lg text-blue-950">
+            {bumpEnergy.period} · {bumpEnergy.direction}
+          </p>
+          <p className="mt-2 text-xs font-semibold text-blue-900/65">
+            4-9s short-period energy
+          </p>
+        </div>
+        <div className="rounded-2xl border border-blue-900/12 bg-white/55 p-4 dark:border-blue-200/12 dark:bg-[#102f46]">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-blue-900/60">
+            Groundswell
+          </p>
+          <p className="weather-data mt-2 text-3xl leading-none text-blue-950">
+            {groundswell.height}
+          </p>
+          <p className="weather-data mt-2 text-base text-blue-950">
+            {groundswell.meta}
+          </p>
+        </div>
       </div>
       <p className="mt-4 text-sm leading-6 text-blue-900/75">
-        Open-ocean sea texture / bumps, not shorebreak size.
+        Bump energy is open-ocean wind-sea texture, separated from longer-period groundswell.
+      </p>
+    </section>
+  );
+}
+
+function CurrentCard({ snapshot }: { snapshot: OceanConditionSnapshot }) {
+  return (
+    <section className="ocean-card rounded-[1.5rem] border border-blue-800/18 bg-[#dbeafe] p-5 dark:border-blue-200/20 dark:bg-[#0c2940]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Compass className="size-5 text-blue-700" />
+          <CategoryPill label="Current" tone="tide" />
+        </div>
+        <SourceFreshnessBadge source={snapshot.current.source} />
+      </div>
+      <p className="weather-data mt-5 text-4xl leading-none text-blue-950">
+        {formatCurrent(snapshot)}
+      </p>
+      <p className="mt-3 text-sm capitalize leading-6 text-blue-900/75">
+        {snapshot.current.trend} · {snapshot.current.stationName}
       </p>
     </section>
   );
@@ -833,7 +796,7 @@ function TideCard({ snapshot }: { snapshot: OceanConditionSnapshot }) {
       ? snapshot.tide.nextHigh
       : snapshot.tide.nextLow;
   return (
-    <section className="ocean-card rounded-[1.5rem] border border-indigo-800/10 bg-indigo-50/45 p-5">
+    <section className="ocean-card rounded-[1.5rem] border border-indigo-800/18 bg-[#e0e7ff] p-5 dark:border-indigo-200/20 dark:bg-[#162542]">
       <div className="flex items-start justify-between gap-3">
         <CategoryPill label="Tide" tone="tide" />
         <SourceFreshnessBadge source={snapshot.tide.source} />
@@ -875,7 +838,7 @@ function RainRiskCard({ snapshot }: { snapshot: OceanConditionSnapshot }) {
       ? "Showers may disturb wind quality."
       : "Lower rain impact on wind quality.";
   return (
-    <section className="ocean-card rounded-[1.5rem] border border-teal-800/10 bg-teal-50/45 p-5">
+    <section className="ocean-card rounded-[1.5rem] border border-teal-800/18 bg-[#d7f3ee] p-5 dark:border-teal-200/20 dark:bg-[#0f302f]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <CloudRain className="size-5 text-teal-700" />
@@ -895,8 +858,6 @@ function RainRiskCard({ snapshot }: { snapshot: OceanConditionSnapshot }) {
   );
 }
 
-type WindowCall = "Solid" | "Mixed" | "Heavy";
-
 function SourceFreshnessBadge({
   source,
 }: {
@@ -910,12 +871,16 @@ function SourceFreshnessBadge({
         : source.fetchedAt
           ? formatTime(source.fetchedAt)
           : "updated";
-  const station = source.stationId ?? getCompactSourceName(source.source);
+  const station = getSourceDisplayName(source);
+  const isMarineZone = source.stationId?.startsWith("PHZ");
+  const label = isMarineZone
+    ? `${station} · ${source.status === "live" ? "LIVE" : "MODEL"}`
+    : `${station} · ${freshness}`;
   return (
-    <span className="inline-flex w-fit max-w-full items-center gap-2 justify-self-start rounded-full border border-[#d7e0e3] bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#5f7078]">
+    <span className="inline-flex w-fit max-w-full items-center gap-2 justify-self-start rounded-full border border-[#cbd9dd] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#3f5660] shadow-[0_4px_12px_rgba(7,35,45,0.06)] dark:border-white/15 dark:bg-[#132c3b] dark:text-[#d6e5ea]">
       <span className={`size-2 rounded-full ${source.status === "live" ? "live-pulse bg-emerald-500" : source.status === "mock" ? "bg-amber-500" : "bg-slate-400"}`} />
       <span className="truncate">
-        {station} · {freshness}
+        {label}
       </span>
     </span>
   );
@@ -929,6 +894,12 @@ function getCompactSourceName(source: string) {
   return "SRC";
 }
 
+function getSourceDisplayName(source: SourceLike) {
+  if (source.stationId === "51205") return "Pauwela";
+  if (source.stationId) return source.stationId;
+  return getCompactSourceName(source.source);
+}
+
 function CategoryPill({
   label,
   tone,
@@ -937,12 +908,12 @@ function CategoryPill({
   tone: "wind" | "gust" | "swell" | "tide" | "rain" | "alert";
 }) {
   const classes = {
-    wind: "border-cyan-700/15 bg-cyan-50 text-cyan-800",
-    gust: "border-amber-700/15 bg-amber-50 text-amber-800",
-    swell: "border-blue-700/15 bg-blue-50 text-blue-800",
-    tide: "border-indigo-700/15 bg-indigo-50 text-indigo-800",
-    rain: "border-teal-700/15 bg-teal-50 text-teal-800",
-    alert: "border-orange-700/20 bg-orange-50 text-orange-800",
+    wind: "border-orange-800/20 bg-[#ffd7c7] text-[#7a2e1b]",
+    gust: "border-amber-800/20 bg-[#fde68a] text-[#78350f]",
+    swell: "border-blue-800/20 bg-[#bfdbfe] text-[#0f2f5f]",
+    tide: "border-indigo-800/20 bg-[#c7d2fe] text-[#263268]",
+    rain: "border-teal-800/20 bg-[#bfeee5] text-[#0a463f]",
+    alert: "border-orange-800/25 bg-[#fed7aa] text-[#7c2d12]",
   };
   return (
     <span
@@ -993,7 +964,7 @@ function StatusPill({
   live?: boolean;
 }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-[#d7e0e3] bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-[#4f626a]">
+    <span className="inline-flex items-center gap-2 rounded-full border border-[#cbd9dd] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.1em] text-[#3f5660] shadow-[0_4px_12px_rgba(7,35,45,0.06)] dark:border-white/15 dark:bg-[#132c3b] dark:text-[#d6e5ea]">
       {live ? (
         <span className="live-pulse size-2 rounded-full bg-[#0d5968]" />
       ) : null}
@@ -1067,7 +1038,7 @@ function getWindDisplay(
 }
 
 function getChannelWind(
-  channel: "kaiwi",
+  channel: "kaiwi" | "alenuihaha",
   snapshot: OceanConditionSnapshot,
   fallback: WindDisplay,
 ): WindDisplay {
@@ -1084,11 +1055,26 @@ function getChannelWind(
     };
   }
 
+  if (channel === "alenuihaha") {
+    return {
+      direction: "ENE",
+      speed: "20-28 kt",
+      gust: "34 kt",
+      degrees: 68,
+      isSample: true,
+    };
+  }
+
   return fallback;
 }
 
-function getChannelSource(channel: "Pailolo Channel" | "Kaiwi Channel", snapshot: OceanConditionSnapshot): SourceLike {
-  const zone = channel === "Pailolo Channel" ? "PHZ120" : "PHZ116";
+function getChannelSource(channel: "Pailolo Channel" | "Kaiwi Channel" | "Alenuihaha Channel", snapshot: OceanConditionSnapshot): SourceLike {
+  const zone =
+    channel === "Pailolo Channel"
+      ? "PHZ120"
+      : channel === "Kaiwi Channel"
+        ? "PHZ116"
+        : "PHZ121";
   const fallbackSource = snapshot.forecastWindows[0]?.source ?? snapshot.wind.source;
   return {
     source: `NOAA HFO CWF · ${channel}`,
@@ -1100,9 +1086,44 @@ function getChannelSource(channel: "Pailolo Channel" | "Kaiwi Channel", snapshot
   };
 }
 
-function formatSwell(snapshot: OceanConditionSnapshot) {
-  if (snapshot.swell.heightFt === null) return "Swell not available";
-  return `${snapshot.swell.heightFt} ft @ ${snapshot.swell.dominantPeriodSec ?? "-"}s ${snapshot.swell.directionCardinal ?? ""}`;
+function getChannelShortName(name: string) {
+  return name.replace(" Channel", "");
+}
+
+function getChannelContext(wind: WindDisplay, bumpHeight: string) {
+  const speed = extractMaxNumber(wind.speed) ?? 0;
+  if (speed >= 22) return `Strong ${wind.direction} channel flow. Wind sea dominating the channel.`;
+  if (bumpHeight !== "No separate bump partition") return "Short-period bumps active in the channel.";
+  return "Channel state tied to live wind and available buoy energy.";
+}
+
+function getHarborContext(harbor: HarborWindObservation, wind: WindDisplay) {
+  const speed = extractMaxNumber(wind.speed) ?? 0;
+  if (speed >= 18) return `${harbor.name} has active harbor wind and likely chop near entries.`;
+  return `${harbor.name} wind is lighter; verify entry texture with camera when available.`;
+}
+
+function formatSeaEnergy(energy: OceanConditionSnapshot["bumpEnergy"]) {
+  const emptyLabel =
+    energy.label === "groundswell"
+      ? "No groundswell"
+      : "No separate bump partition";
+  const meta =
+    energy.heightFt === null && energy.label === "groundswell"
+      ? "wind sea dominant"
+      : `${energy.periodSec !== null ? `${energy.periodSec}s` : "period -"} · ${energy.directionCardinal ?? "dir -"}`;
+  return {
+    height: energy.heightFt !== null ? `${energy.heightFt} ft` : emptyLabel,
+    period: energy.periodSec !== null ? `${energy.periodSec}s` : "period -",
+    direction: energy.directionCardinal ?? "dir -",
+    meta,
+  };
+}
+
+function formatCurrent(snapshot: OceanConditionSnapshot) {
+  const speed = snapshot.current.speedKt !== null ? `${snapshot.current.speedKt} kt` : "speed -";
+  const direction = snapshot.current.directionCardinal ?? "dir -";
+  return `${speed} ${direction}`;
 }
 
 function formatRain(snapshot: OceanConditionSnapshot) {
@@ -1146,39 +1167,39 @@ function getWindToneFromText(speed: string, gust?: string): WindTone {
 function getWindToneClasses(tone: WindTone) {
   const classes = {
     light: {
-      card: "border-emerald-800/10 bg-emerald-50/55 text-emerald-950",
-      text: "text-emerald-950",
-      muted: "text-emerald-900/65",
+      card: "border-orange-900/18 bg-[#ffe8df] text-[#6f2717]",
+      text: "text-[#6f2717]",
+      muted: "text-orange-900/65",
       badge:
-        "inline-flex items-center gap-2 rounded-full border border-emerald-700/15 bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-emerald-800",
+        "inline-flex items-center gap-2 rounded-full border border-orange-900/18 bg-[#fff2ec] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#6f2717]",
     },
     clean: {
-      card: "border-cyan-800/10 bg-cyan-50/60 text-cyan-950",
-      text: "text-cyan-950",
-      muted: "text-cyan-900/65",
+      card: "border-orange-900/20 bg-[#ffd7c7] text-[#7a2e1b]",
+      text: "text-[#7a2e1b]",
+      muted: "text-orange-900/65",
       badge:
-        "inline-flex items-center gap-2 rounded-full border border-cyan-700/15 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-cyan-800",
+        "inline-flex items-center gap-2 rounded-full border border-orange-900/20 bg-[#ffe9df] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#7a2e1b]",
     },
     medium: {
-      card: "border-amber-800/12 bg-amber-50/65 text-amber-950",
-      text: "text-amber-950",
+      card: "border-amber-900/25 bg-[#fde68a] text-[#78350f]",
+      text: "text-[#78350f]",
       muted: "text-amber-900/70",
       badge:
-        "inline-flex items-center gap-2 rounded-full border border-amber-700/18 bg-amber-100/80 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-amber-900",
+        "inline-flex items-center gap-2 rounded-full border border-amber-900/25 bg-[#fef3c7] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#78350f]",
     },
     strong: {
-      card: "border-red-900/15 bg-red-50/70 text-red-950",
-      text: "text-red-950",
-      muted: "text-red-900/70",
+      card: "border-orange-900/25 bg-[#ffc6b5] text-[#802515]",
+      text: "text-[#802515]",
+      muted: "text-orange-900/70",
       badge:
-        "inline-flex items-center gap-2 rounded-full border border-red-800/20 bg-red-100/85 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-red-950",
+        "inline-flex items-center gap-2 rounded-full border border-orange-900/25 bg-[#ffe1d6] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#802515]",
     },
     wild: {
-      card: "border-violet-900/15 bg-violet-50/70 text-violet-950",
-      text: "text-violet-950",
+      card: "border-violet-900/25 bg-[#ddd6fe] text-[#3b0764]",
+      text: "text-[#3b0764]",
       muted: "text-violet-900/70",
       badge:
-        "inline-flex items-center gap-2 rounded-full border border-violet-800/20 bg-violet-100/85 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-violet-950",
+        "inline-flex items-center gap-2 rounded-full border border-violet-900/25 bg-[#ede9fe] px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-[#3b0764]",
     },
   };
   return classes[tone];
@@ -1195,31 +1216,6 @@ function extractMaxNumber(value: string) {
 function directionDifference(a: number, b: number) {
   const diff = Math.abs(a - b) % 360;
   return diff > 180 ? 360 - diff : diff;
-}
-
-function classifyWindow(
-  windSpeed: number | null,
-  gust: number | null,
-  rain: number | null,
-): WindowCall {
-  if (windSpeed === null) return "Mixed";
-  if (
-    windSpeed >= 18 &&
-    windSpeed <= 28 &&
-    (gust ?? 0) <= 35 &&
-    (rain ?? 0) < 40
-  )
-    return "Solid";
-  if (windSpeed < 10 || windSpeed > 32 || (rain ?? 0) >= 55) return "Heavy";
-  return "Mixed";
-}
-
-function getReadClass(read: WindowCall) {
-  if (read === "Solid")
-    return "rounded-xl border border-teal-800/10 bg-teal-50/80 px-3 py-2 text-teal-950";
-  if (read === "Mixed")
-    return "rounded-xl border border-amber-800/10 bg-amber-50/80 px-3 py-2 text-amber-950";
-  return "rounded-xl border border-orange-800/15 bg-orange-50/85 px-3 py-2 text-orange-950";
 }
 
 function buildThreeDayForecast(windows: ForecastWindow[], zone: Zone) {
@@ -1296,13 +1292,6 @@ function parseWind(value: string) {
   };
 }
 
-function parseSwell(value: string) {
-  const height = value.match(/([\d.-]+\s*ft)/)?.[1] ?? "-";
-  const period = value.match(/@\s*([\d.-]+s)/)?.[1] ?? "-";
-  const direction = value.match(/([A-Z]{1,3})\s*$/)?.[1] ?? "-";
-  return { height, period, direction };
-}
-
 function cardinalToDegrees(direction: string) {
   const map: Record<string, number> = {
     N: 0,
@@ -1339,8 +1328,8 @@ function ZoneChip({
       href={href}
       className={
         active
-          ? "rounded-full border border-[#b9c9ce] bg-white/80 px-4 py-2 text-sm font-semibold text-[#102b3a] shadow-[0_8px_20px_rgba(7,35,45,0.06)]"
-          : "rounded-full border border-[#d7e0e3] bg-white/45 px-4 py-2 text-sm font-semibold text-[#526a73] transition hover:border-[#b9c9ce] hover:bg-white/75 hover:text-[#102b3a]"
+          ? "rounded-full border border-[#092f3e] bg-[#092f3e] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(7,35,45,0.16)] dark:border-[#9debf9]/35 dark:bg-[#d8f6fb] dark:text-[#071723]"
+          : "rounded-full border border-[#cbd9dd] bg-white px-4 py-2 text-sm font-semibold text-[#4a626b] transition hover:border-[#092f3e]/35 hover:text-[#102b3a] dark:border-white/12 dark:bg-[#102a3a] dark:text-[#c9d9df] dark:hover:border-[#9debf9]/35 dark:hover:text-white"
       }
     >
       {getZoneLabel(zone)}
@@ -1348,8 +1337,66 @@ function ZoneChip({
   );
 }
 
+type ShoreConfig = {
+  id: Shore;
+  label: string;
+  secondary: string;
+  zone: Zone;
+};
+
+function ShoreChip({
+  shore,
+  active,
+  href,
+}: {
+  shore: Shore;
+  active: boolean;
+  href: string;
+}) {
+  const config = getShoreConfig(shore);
+  return (
+    <Link
+      href={href}
+      className={
+        active
+          ? "rounded-full border border-[#092f3e] bg-[#092f3e] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_22px_rgba(7,35,45,0.16)] dark:border-[#9debf9]/35 dark:bg-[#d8f6fb] dark:text-[#071723]"
+          : "rounded-full border border-[#cbd9dd] bg-white px-4 py-2 text-sm font-semibold text-[#4a626b] transition hover:border-[#092f3e]/35 hover:text-[#102b3a] dark:border-white/12 dark:bg-[#102a3a] dark:text-[#c9d9df] dark:hover:border-[#9debf9]/35 dark:hover:text-white"
+      }
+    >
+      {config.label}
+    </Link>
+  );
+}
+
+function getShoreConfig(shore: Shore): ShoreConfig {
+  const configs: Record<Shore, ShoreConfig> = {
+    north: { id: "north", label: "North Shore", secondary: "Windward", zone: "windward" },
+    south: { id: "south", label: "South Side / Kihei", secondary: "Leeward", zone: "leeward" },
+    west: { id: "west", label: "West Side", secondary: "Leeward", zone: "leeward" },
+  };
+  return configs[shore];
+}
+
 function getZoneLabel(zone: Zone) {
   return zone === "windward" ? "Windward" : "Leeward";
+}
+
+function normalizeMode(activity: Activity): ObservationMode {
+  if (activity === "downwind") return "shores";
+  if (activity === "fishing") return "channels";
+  return activity;
+}
+
+function getModeKicker(mode: ObservationMode, shore: ShoreConfig) {
+  if (mode === "shores") return shore.secondary;
+  if (mode === "channels") return "Inter-island";
+  return "Harbors";
+}
+
+function getModeTitle(mode: ObservationMode, shore: ShoreConfig) {
+  if (mode === "shores") return `${shore.label} observations`;
+  if (mode === "channels") return "Channel conditions";
+  return "Harbor conditions";
 }
 
 function getZoneWind(snapshot: OceanConditionSnapshot, zone: Zone) {
@@ -1364,7 +1411,19 @@ function normalizeZone(value: string | string[] | undefined): Zone {
   return value === "leeward" ? "leeward" : "windward";
 }
 
-export { normalizeZone };
+function normalizeShore(value: string | string[] | undefined): Shore {
+  if (value === "south" || value === "west") return value;
+  return "north";
+}
+
+function getHarborCameraLabel(harbor: HarborWindObservation) {
+  if (harbor.id.includes("kahului")) return "Harbor";
+  if (harbor.id.includes("maalaea")) return "Kihei / Wailea";
+  if (harbor.id.includes("lahaina") || harbor.id.includes("mala")) return "West Side";
+  return "Camera check";
+}
+
+export { normalizeShore, normalizeZone };
 
 function buildFallbackForecast(zone: Zone) {
   const windward = [

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function RoutesPage() {
+export default function CoastlinesPage() {
   redirect("/shores");
 }

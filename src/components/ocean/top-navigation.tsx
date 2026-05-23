@@ -5,28 +5,41 @@ import { navItems } from "@/components/ocean/sidebar";
 import { ThemeToggle } from "@/components/ocean/theme-toggle";
 import { cn } from "@/lib/utils";
 
-export function TopNavigation({ active }: { active: string }) {
+export function TopNavigation({
+  active,
+  oceanStatus,
+}: {
+  active: string;
+  oceanStatus: string;
+}) {
   return (
-    <header className="sticky top-0 z-30 border-b border-[#e4e8ea] bg-white/92 px-4 py-3 backdrop-blur-xl lg:hidden">
-      <div className="flex items-center justify-between gap-3">
+    <header className="sticky top-0 z-30 px-4 py-3 lg:hidden">
+      <div className="mx-auto flex w-full max-w-6xl items-start justify-between gap-3">
         <Link href="/home" className="flex items-center gap-2">
-          <span className="grid size-9 place-items-center rounded-full bg-[#f3f7f8] text-[#0d5968] ring-1 ring-[#d8e4e7]">
+          <span className="mt-0.5 grid size-8 place-items-center rounded-full border border-[#094c60]/12 bg-white/70 text-[#0d5968] dark:border-white/14 dark:bg-[#102a3a]">
             <Waves className="size-4" />
           </span>
-          <span className="text-sm font-semibold text-[#102b3a]">Downwind AI</span>
+          <span>
+            <span className="block text-sm font-semibold leading-tight text-[#102b3a]">Ocean State</span>
+            <span className="block text-xs font-semibold leading-tight text-[#5f7078]">Live Maui ocean state</span>
+            <span className="mt-0.5 inline-flex items-center gap-1.5 text-[0.68rem] font-semibold uppercase tracking-[0.08em] text-[#7a2e1b] dark:text-[#ffb39f]">
+              <span className="live-pulse size-1.5 rounded-full bg-emerald-500" />
+              {oceanStatus}
+            </span>
+          </span>
         </Link>
         <ThemeToggle compact />
       </div>
-      <nav className="mt-3 grid grid-cols-3 gap-2">
+      <nav className="mx-auto mt-4 flex w-full max-w-6xl items-center gap-5 overflow-x-auto border-b border-[#094c60]/12 pb-1 dark:border-white/12">
         {navItems.map((item) => (
           <Link
             key={item.href}
             href={item.href}
             className={cn(
-              "rounded-full px-2 py-2 text-center text-xs font-semibold uppercase tracking-[0.08em]",
+              "shrink-0 border-b-2 px-0 pb-2 text-[0.68rem] font-semibold uppercase tracking-[0.08em] transition",
               active === item.href
-                ? "border border-[#0d5968]/20 bg-[#dff7f6] text-[#0d5968]"
-                : "border border-transparent bg-[#f3f7f8] text-[#5f7078]",
+                ? "border-[#092f3e] text-[#102b3a] dark:border-[#ff9f8c] dark:text-white"
+                : "border-transparent text-[#526a73] hover:text-[#102b3a] dark:text-[#a9bdc6] dark:hover:text-white",
             )}
           >
             <span className="inline-flex items-center justify-center gap-1.5">

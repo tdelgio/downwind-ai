@@ -1,4 +1,14 @@
-import type { ForecastWindow, HarborWindObservation, OceanConditionSnapshot, RouteConfig, SwellObservation, TideObservation, WindObservation } from "./types";
+import type {
+  CurrentObservation,
+  ForecastWindow,
+  HarborWindObservation,
+  OceanConditionSnapshot,
+  RouteConfig,
+  SeaEnergyObservation,
+  SwellObservation,
+  TideObservation,
+  WindObservation,
+} from "./types";
 
 export const malikoNorthShoreRoute: RouteConfig = {
   id: "maui-maliko-north-shore",
@@ -21,6 +31,8 @@ export const malikoNorthShoreRoute: RouteConfig = {
     finishWindStationId: "KLIH1",
     // Kahului Harbor is the initial nearby CO-OPS tide station placeholder.
     tideStationId: "1615680",
+    // Configure a real NOAA CO-OPS current station/bin once selected for Maui channels/harbors.
+    currentStationId: "mock-current-maui",
     nwsPoint: { latitude: 20.941, longitude: -156.284 },
   },
 };
@@ -58,6 +70,40 @@ export const mockSwellObservation: SwellObservation = {
   },
 };
 
+export const mockGroundswellObservation: SeaEnergyObservation = {
+  label: "groundswell",
+  heightFt: 3.2,
+  periodSec: 14,
+  directionDeg: 350,
+  directionCardinal: "N",
+  description: "Long-period swell energy.",
+  source: {
+    source: "Mock NDBC 51205",
+    status: "mock",
+    stationId: "51205",
+    fetchedAt: now,
+    observedAt: "2026-05-21T07:40:00-10:00",
+    freshnessMinutes: 20,
+  },
+};
+
+export const mockBumpEnergyObservation: SeaEnergyObservation = {
+  label: "bump-energy",
+  heightFt: 5.8,
+  periodSec: 8,
+  directionDeg: 75,
+  directionCardinal: "ENE",
+  description: "Short-period 4-9s wind-sea texture for downwind bumps.",
+  source: {
+    source: "Mock NDBC 51205",
+    status: "mock",
+    stationId: "51205",
+    fetchedAt: now,
+    observedAt: "2026-05-21T07:40:00-10:00",
+    freshnessMinutes: 20,
+  },
+};
+
 export const mockTideObservation: TideObservation = {
   stationId: "1615680",
   stationName: "Kahului, Kahului Harbor, HI",
@@ -74,6 +120,23 @@ export const mockTideObservation: TideObservation = {
     source: "Mock NOAA CO-OPS 1615680",
     status: "mock",
     stationId: "1615680",
+    fetchedAt: now,
+    observedAt: now,
+    freshnessMinutes: 0,
+  },
+};
+
+export const mockCurrentObservation: CurrentObservation = {
+  stationId: "mock-current-maui",
+  stationName: "Maui current layer placeholder",
+  speedKt: 0.8,
+  directionDeg: 285,
+  directionCardinal: "W",
+  trend: "ebb",
+  source: {
+    source: "Mock NOAA CO-OPS currents",
+    status: "mock",
+    stationId: "mock-current-maui",
     fetchedAt: now,
     observedAt: now,
     freshnessMinutes: 0,
@@ -130,14 +193,20 @@ export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRou
     generatedAt: now,
     wind: mockWindObservation,
     swell: mockSwellObservation,
+    groundswell: mockGroundswellObservation,
+    bumpEnergy: mockBumpEnergyObservation,
     tide: mockTideObservation,
+    current: mockCurrentObservation,
     harborWinds: mockHarborWinds,
     forecastWindows: mockForecastWindows,
     alerts: [],
     sources: [
       mockWindObservation.source,
       mockSwellObservation.source,
+      mockGroundswellObservation.source,
+      mockBumpEnergyObservation.source,
       mockTideObservation.source,
+      mockCurrentObservation.source,
       ...mockHarborWinds.map((harbor) => harbor.observation.source),
       ...mockForecastWindows.map((window) => window.source),
     ],

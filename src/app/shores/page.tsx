@@ -1,8 +1,8 @@
+import { ActivityForecastPage, normalizeShore } from "@/components/ocean/activity-forecast";
 import { OceanAppShell } from "@/components/ocean/shell";
-import { HomeForecastOverview, normalizeShore } from "@/components/ocean/activity-forecast";
 import { getOceanIntelligence } from "@/lib/ocean";
 
-export default async function HomeModePage({
+export default async function ShoresPage({
   searchParams,
 }: {
   searchParams: Promise<{ shore?: string | string[] }>;
@@ -11,8 +11,8 @@ export default async function HomeModePage({
   const selectedShore = normalizeShore((await searchParams).shore);
 
   return (
-    <OceanAppShell active="/home" oceanStatus={getOceanStatus(snapshot)} marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
-      <HomeForecastOverview snapshot={snapshot} selectedShore={selectedShore} />
+    <OceanAppShell active="/shores" oceanStatus={getOceanStatus(snapshot)} marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
+      <ActivityForecastPage activity="shores" selectedZone="windward" selectedShore={selectedShore} snapshot={snapshot} />
     </OceanAppShell>
   );
 }

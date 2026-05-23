@@ -51,7 +51,7 @@ export function LiveCameraCard({
         <p className="text-sm font-semibold leading-6 text-[#102b3a]">{visualRead}</p>
         <div className="mt-3 flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.08em] text-[#6b7d84]">
           <span>{timestamp}</span>
-          <span>Ocean Read input</span>
+          <span>Visual check</span>
         </div>
       </div>
     </article>
