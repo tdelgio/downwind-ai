@@ -2,7 +2,6 @@
 
 A real-time ocean intelligence platform for downwind and ocean athletes.
 
-DEMO: https://downwindai.netlify.app/
 
 ## How to run
 
