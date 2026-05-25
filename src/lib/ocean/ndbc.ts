@@ -2,6 +2,8 @@ import { mockBumpEnergyObservation, mockGroundswellObservation, mockSwellObserva
 import type { SeaEnergyObservation, SourceMeta, SwellObservation, WindObservation } from "./types";
 
 const NDBC_REALTIME_BASE_URL = "https://www.ndbc.noaa.gov/data/realtime2";
+const NDBC_FETCH_TIMEOUT_MS = 4500;
+const NDBC_SPECTRAL_TIMEOUT_MS = 3000;
 
 interface NdbcParsedRow {
   observedAt: string;
@@ -22,6 +24,7 @@ interface NdbcSpectralPartition {
 export async function fetchNdbcRealtimeText(stationId: string): Promise<string> {
   const response = await fetch(`${NDBC_REALTIME_BASE_URL}/${stationId}.txt`, {
     next: { revalidate: 600 },
+    signal: AbortSignal.timeout(NDBC_FETCH_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -34,6 +37,7 @@ export async function fetchNdbcRealtimeText(stationId: string): Promise<string> 
 export async function fetchNdbcSpectralText(stationId: string): Promise<string> {
   const response = await fetch(`${NDBC_REALTIME_BASE_URL}/${stationId}.data_spec`, {
     next: { revalidate: 600 },
+    signal: AbortSignal.timeout(NDBC_SPECTRAL_TIMEOUT_MS),
   });
 
   if (!response.ok) {

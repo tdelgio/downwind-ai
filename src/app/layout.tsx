@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Ocean State",
-  description: "Live ocean state for Maui riders and ocean users.",
+  title: "Ocean State — Live Maui Ocean Conditions",
+  description:
+    "Live ocean-state observations for Maui: wind, bump energy, channels, harbors, cameras, tide, rain, and marine conditions.",
 };
 
 export default function RootLayout({
@@ -18,7 +19,7 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
 try {
-  var theme = localStorage.getItem("downwind-theme");
+  var theme = localStorage.getItem("ocean-state-theme") || localStorage.getItem("downwind-theme");
   var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   if (theme === "dark" || (!theme && prefersDark)) {
     document.documentElement.classList.add("dark");

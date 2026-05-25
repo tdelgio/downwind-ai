@@ -5,6 +5,7 @@ import type {
   OceanConditionSnapshot,
   RouteConfig,
   SeaEnergyObservation,
+  ShoreOceanObservations,
   SwellObservation,
   TideObservation,
   WindObservation,
@@ -104,6 +105,86 @@ export const mockBumpEnergyObservation: SeaEnergyObservation = {
   },
 };
 
+export const mockSouthSwellObservation: SwellObservation = {
+  heightFt: 3.4,
+  dominantPeriodSec: 13,
+  directionDeg: 205,
+  directionCardinal: "SSW",
+  waterTempF: 78.8,
+  source: {
+    source: "Mock NDBC 51213",
+    status: "mock",
+    stationId: "51213",
+    fetchedAt: now,
+    observedAt: "2026-05-21T07:40:00-10:00",
+    freshnessMinutes: 20,
+  },
+};
+
+export const mockSouthGroundswellObservation: SeaEnergyObservation = {
+  label: "groundswell",
+  heightFt: 3.4,
+  periodSec: 13,
+  directionDeg: 205,
+  directionCardinal: "SSW",
+  description: "South-side long-period swell proxy.",
+  source: mockSouthSwellObservation.source,
+};
+
+export const mockSouthBumpEnergyObservation: SeaEnergyObservation = {
+  label: "bump-energy",
+  heightFt: 2.1,
+  periodSec: 7,
+  directionDeg: 115,
+  directionCardinal: "ESE",
+  description: "South-side short-period wind-sea proxy.",
+  source: mockSouthSwellObservation.source,
+};
+
+export const mockShoreObservations: Record<"north" | "south" | "west", ShoreOceanObservations> = {
+  north: {
+    shoreId: "north",
+    label: "North Shore",
+    buoyId: "51205",
+    wind: mockWindObservation,
+    swell: mockSwellObservation,
+    groundswell: mockGroundswellObservation,
+    bumpEnergy: mockBumpEnergyObservation,
+  },
+  south: {
+    shoreId: "south",
+    label: "South Side",
+    buoyId: "51213",
+    wind: {
+      ...mockWindObservation,
+      directionDeg: 110,
+      directionCardinal: "ESE",
+      speedKt: 13,
+      gustKt: 20,
+      source: mockSouthSwellObservation.source,
+    },
+    swell: mockSouthSwellObservation,
+    groundswell: mockSouthGroundswellObservation,
+    bumpEnergy: mockSouthBumpEnergyObservation,
+  },
+  west: {
+    shoreId: "west",
+    label: "West Side",
+    buoyId: "51213",
+    wind: {
+      ...mockWindObservation,
+      directionDeg: 95,
+      directionCardinal: "E",
+      speedKt: 11,
+      gustKt: 18,
+      source: mockSouthSwellObservation.source,
+    },
+    swell: mockSouthSwellObservation,
+    groundswell: mockSouthGroundswellObservation,
+    bumpEnergy: mockSouthBumpEnergyObservation,
+  },
+};
+
 export const mockTideObservation: TideObservation = {
   stationId: "1615680",
   stationName: "Kahului, Kahului Harbor, HI",
@@ -197,6 +278,7 @@ export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRou
     bumpEnergy: mockBumpEnergyObservation,
     tide: mockTideObservation,
     current: mockCurrentObservation,
+    shoreObservations: mockShoreObservations,
     harborWinds: mockHarborWinds,
     forecastWindows: mockForecastWindows,
     alerts: [],
@@ -207,6 +289,7 @@ export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRou
       mockBumpEnergyObservation.source,
       mockTideObservation.source,
       mockCurrentObservation.source,
+      mockSouthSwellObservation.source,
       ...mockHarborWinds.map((harbor) => harbor.observation.source),
       ...mockForecastWindows.map((window) => window.source),
     ],

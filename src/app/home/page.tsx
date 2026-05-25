@@ -11,13 +11,8 @@ export default async function HomeModePage({
   const selectedShore = normalizeShore((await searchParams).shore);
 
   return (
-    <OceanAppShell active="/home" oceanStatus={getOceanStatus(snapshot)} marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
+    <OceanAppShell active="/home" marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
       <HomeForecastOverview snapshot={snapshot} selectedShore={selectedShore} />
     </OceanAppShell>
   );
-}
-
-function getOceanStatus(snapshot: Awaited<ReturnType<typeof getOceanIntelligence>>["snapshot"]) {
-  const direction = snapshot.wind.directionCardinal ?? "Live";
-  return `${direction} trades active`;
 }

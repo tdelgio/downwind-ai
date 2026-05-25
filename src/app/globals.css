@@ -197,10 +197,10 @@
 @keyframes livePulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(13, 89, 104, 0.22);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.28);
   }
   50% {
-    box-shadow: 0 0 0 7px rgba(13, 89, 104, 0);
+    box-shadow: 0 0 0 7px rgba(16, 185, 129, 0);
   }
 }
 
@@ -251,7 +251,7 @@
   border-color: rgba(9, 47, 62, 0.16);
   border-radius: 28px;
   box-shadow: 0 14px 34px rgba(7, 35, 45, 0.1);
-  backdrop-filter: blur(4px);
+  backdrop-filter: none;
 }
 
 .hero-ocean {
@@ -419,9 +419,10 @@
 .dark .ocean-card,
 .dark .ocean-card-soft,
 .dark .ocean-row {
-  background: #0b2230;
-  border-color: rgba(157, 235, 249, 0.24);
+  background: #071d2a;
+  border-color: rgba(157, 235, 249, 0.3);
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.34);
+  backdrop-filter: none;
 }
 
 .dark .hero-ocean::before {
@@ -438,7 +439,7 @@
 .dark .ocean-shell aside,
 .dark .ocean-shell header {
   border-color: rgba(157, 235, 249, 0.16) !important;
-  background: #071723 !important;
+  background: rgba(7, 23, 35, 0.94) !important;
   backdrop-filter: blur(6px);
 }
 
@@ -482,8 +483,8 @@
 }
 
 .dark .ocean-shell [class*="bg-[#102b3a]"] {
-  background-color: #5be7ff !important;
-  color: #06131d !important;
+  background-color: #143547 !important;
+  color: #e9f8fb !important;
 }
 
 .dark .ocean-shell [class*="bg-cyan-50"],
@@ -573,4 +574,19 @@
 .ocean-grain {
   background-image: radial-gradient(rgba(16, 43, 58, 0.18) 0.55px, transparent 0.55px);
   background-size: 5px 5px;
+}
+
+@media (max-width: 380px) {
+  .ocean-card,
+  .ocean-card-soft {
+    border-radius: 20px;
+  }
+
+  .weather-data {
+    letter-spacing: 0;
+  }
+
+  .theme-toggle {
+    min-width: 2.25rem;
+  }
 }

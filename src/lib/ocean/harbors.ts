@@ -48,8 +48,38 @@ export const mauiHarborWindConfigs: HarborWindConfig[] = [
   },
 ];
 
+const HARBOR_WIND_CACHE_TTL_MS = 5 * 60 * 1000;
+let harborWindCache:
+  | {
+      expiresAt: number;
+      observations: HarborWindObservation[];
+    }
+  | null = null;
+let inFlightHarborWinds: Promise<HarborWindObservation[]> | null = null;
+
 export async function getMauiHarborWinds(): Promise<HarborWindObservation[]> {
-  return Promise.all(mauiHarborWindConfigs.map(getHarborWind));
+  const now = Date.now();
+  if (harborWindCache && harborWindCache.expiresAt > now) {
+    return harborWindCache.observations;
+  }
+
+  if (inFlightHarborWinds) {
+    return inFlightHarborWinds;
+  }
+
+  inFlightHarborWinds = Promise.all(mauiHarborWindConfigs.map(getHarborWind))
+    .then((observations) => {
+      harborWindCache = {
+        expiresAt: Date.now() + HARBOR_WIND_CACHE_TTL_MS,
+        observations,
+      };
+      return observations;
+    })
+    .finally(() => {
+      inFlightHarborWinds = null;
+    });
+
+  return inFlightHarborWinds;
 }
 
 async function getHarborWind(config: HarborWindConfig): Promise<HarborWindObservation> {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Anchor, CalendarDays, Home, Ship } from "lucide-react";
+import { Anchor, CalendarDays, Home, MapPin, Ship } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ocean/theme-toggle";
@@ -16,6 +16,7 @@ export function Sidebar({ active }: { active: string }) {
     <aside className="hidden w-64 shrink-0 border-r border-[rgba(9,76,96,0.12)] bg-[#f6fbfc] p-4 lg:block">
       <Link
         href="/home"
+        prefetch={false}
         className="flex items-center gap-3 rounded-2xl bg-[#f7fafa] p-3 ring-1 ring-[#e4e8ea]"
       >
         <span className="grid size-11 place-items-center rounded-full bg-white text-[#0d5968] ring-1 ring-[#d8e4e7]">
@@ -25,8 +26,9 @@ export function Sidebar({ active }: { active: string }) {
           <span className="block text-base font-semibold tracking-[0.01em] text-[#102b3a]">
             Ocean State
           </span>
-          <span className="block text-xs font-medium uppercase tracking-[0.12em] text-[#6e8188]">
-            Maui live ocean
+          <span className="mt-0.5 flex items-center gap-1 text-[0.66rem] font-semibold uppercase tracking-[0.14em] text-[#0d5968]">
+            <MapPin className="size-3" />
+            Maui
           </span>
         </span>
       </Link>
@@ -36,6 +38,7 @@ export function Sidebar({ active }: { active: string }) {
           <Link
             key={item.href}
             href={item.href}
+            prefetch={false}
             className={cn(
               "flex items-center gap-3 rounded-2xl px-3 py-3 transition",
               active === item.href

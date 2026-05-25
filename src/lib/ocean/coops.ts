@@ -3,6 +3,7 @@ import type { CurrentObservation, SourceMeta, TideEvent, TideObservation, TideTr
 
 const COOPS_API_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter";
 const COOPS_METADATA_URL = "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations";
+const COOPS_FETCH_TIMEOUT_MS = 4500;
 
 interface CoopsPrediction {
   t: string;
@@ -119,7 +120,10 @@ async function fetchCurrentVelocity(stationId: string): Promise<CoopsCurrent[]> 
     units: "english",
     format: "json",
   });
-  const response = await fetch(`${COOPS_API_URL}?${params}`, { next: { revalidate: 600 } });
+  const response = await fetch(`${COOPS_API_URL}?${params}`, {
+    next: { revalidate: 600 },
+    signal: AbortSignal.timeout(COOPS_FETCH_TIMEOUT_MS),
+  });
   if (!response.ok) throw new Error(`CO-OPS currents failed with ${response.status}`);
   const json = (await response.json()) as { data?: CoopsCurrent[] };
   return json.data ?? [];
@@ -138,7 +142,10 @@ async function fetchTidePredictions(stationId: string): Promise<CoopsPrediction[
     interval: "hilo",
     format: "json",
   });
-  const response = await fetch(`${COOPS_API_URL}?${params}`, { next: { revalidate: 1800 } });
+  const response = await fetch(`${COOPS_API_URL}?${params}`, {
+    next: { revalidate: 1800 },
+    signal: AbortSignal.timeout(COOPS_FETCH_TIMEOUT_MS),
+  });
   if (!response.ok) throw new Error(`CO-OPS tide predictions failed with ${response.status}`);
   const json = (await response.json()) as { predictions?: CoopsPrediction[] };
   return json.predictions ?? [];
@@ -155,14 +162,20 @@ async function fetchCurrentWaterLevels(stationId: string): Promise<CoopsWaterLev
     units: "english",
     format: "json",
   });
-  const response = await fetch(`${COOPS_API_URL}?${params}`, { next: { revalidate: 600 } });
+  const response = await fetch(`${COOPS_API_URL}?${params}`, {
+    next: { revalidate: 600 },
+    signal: AbortSignal.timeout(COOPS_FETCH_TIMEOUT_MS),
+  });
   if (!response.ok) throw new Error(`CO-OPS water level failed with ${response.status}`);
   const json = (await response.json()) as { data?: CoopsWaterLevel[] };
   return json.data ?? [];
 }
 
 async function fetchStationMetadata(stationId: string): Promise<{ name?: string } | null> {
-  const response = await fetch(`${COOPS_METADATA_URL}/${stationId}.json`, { next: { revalidate: 86400 } });
+  const response = await fetch(`${COOPS_METADATA_URL}/${stationId}.json`, {
+    next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(COOPS_FETCH_TIMEOUT_MS),
+  });
   if (!response.ok) return null;
   const json = (await response.json()) as { stations?: Array<{ name?: string }> };
   return json.stations?.[0] ?? null;

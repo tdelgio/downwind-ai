@@ -3,6 +3,7 @@ import { degreesToCardinal } from "./ndbc";
 import type { ForecastWindow, GeoPoint, SourceMeta, WeatherAlert, WindObservation } from "./types";
 
 const NWS_API_URL = "https://api.weather.gov";
+const NWS_FETCH_TIMEOUT_MS = 4500;
 
 interface NwsPointResponse {
   properties?: {
@@ -34,6 +35,7 @@ export async function getNwsForecastWindows(point: GeoPoint): Promise<ForecastWi
     const response = await fetch(hourlyUrl, {
       headers: { Accept: "application/geo+json" },
       next: { revalidate: 900 },
+      signal: AbortSignal.timeout(NWS_FETCH_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`NWS hourly forecast failed with ${response.status}`);
 
@@ -70,6 +72,7 @@ export async function getNwsAlerts(point: GeoPoint): Promise<WeatherAlert[]> {
     const response = await fetch(url, {
       headers: { Accept: "application/geo+json" },
       next: { revalidate: 300 },
+      signal: AbortSignal.timeout(NWS_FETCH_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`NWS alerts failed with ${response.status}`);
 
@@ -132,6 +135,7 @@ async function fetchNwsPoint(point: GeoPoint): Promise<NwsPointResponse> {
   const response = await fetch(`${NWS_API_URL}/points/${point.latitude},${point.longitude}`, {
     headers: { Accept: "application/geo+json" },
     next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(NWS_FETCH_TIMEOUT_MS),
   });
   if (!response.ok) throw new Error(`NWS point lookup failed with ${response.status}`);
   return response.json();

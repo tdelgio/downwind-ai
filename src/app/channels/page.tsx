@@ -1,23 +1,20 @@
-import { ActivityForecastPage, normalizeZone } from "@/components/ocean/activity-forecast";
+import { ActivityForecastPage, normalizeChannel, normalizeZone } from "@/components/ocean/activity-forecast";
 import { OceanAppShell } from "@/components/ocean/shell";
 import { getOceanIntelligence } from "@/lib/ocean";
 
 export default async function ChannelsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ zone?: string | string[] }>;
+  searchParams: Promise<{ channel?: string | string[]; zone?: string | string[] }>;
 }) {
   const { snapshot } = await getOceanIntelligence();
-  const selectedZone = normalizeZone((await searchParams).zone);
+  const params = await searchParams;
+  const selectedZone = normalizeZone(params.zone);
+  const selectedChannel = normalizeChannel(params.channel);
 
   return (
-    <OceanAppShell active="/channels" oceanStatus={getOceanStatus(snapshot)} marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
-      <ActivityForecastPage activity="channels" selectedZone={selectedZone} snapshot={snapshot} />
+    <OceanAppShell active="/channels" marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
+      <ActivityForecastPage activity="channels" selectedZone={selectedZone} selectedChannel={selectedChannel} snapshot={snapshot} />
     </OceanAppShell>
   );
-}
-
-function getOceanStatus(snapshot: Awaited<ReturnType<typeof getOceanIntelligence>>["snapshot"]) {
-  const direction = snapshot.wind.directionCardinal ?? "Live";
-  return `${direction} trades active`;
 }

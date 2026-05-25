@@ -4,10 +4,14 @@ import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
+const THEME_KEY = "ocean-state-theme";
+const LEGACY_THEME_KEY = "downwind-theme";
 
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "light";
-  const savedTheme = window.localStorage.getItem("downwind-theme") as Theme | null;
+  const savedTheme =
+    (window.localStorage.getItem(THEME_KEY) as Theme | null) ??
+    (window.localStorage.getItem(LEGACY_THEME_KEY) as Theme | null);
   if (savedTheme === "dark" || savedTheme === "light") return savedTheme;
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
@@ -26,7 +30,7 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
   function toggleTheme() {
     const nextTheme = theme === "dark" ? "light" : "dark";
     setTheme(nextTheme);
-    window.localStorage.setItem("downwind-theme", nextTheme);
+    window.localStorage.setItem(THEME_KEY, nextTheme);
     applyTheme(nextTheme);
   }
 
@@ -37,10 +41,11 @@ export function ThemeToggle({ compact = false }: { compact?: boolean }) {
       type="button"
       onClick={toggleTheme}
       aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      aria-pressed={theme === "dark"}
       className={
         compact
-          ? "theme-toggle grid size-9 place-items-center rounded-full border text-[#526a73] transition hover:-translate-y-0.5 hover:text-[#0d5968]"
-          : "theme-toggle flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm font-semibold text-[#5f7078] transition hover:-translate-y-0.5"
+          ? "theme-toggle relative z-40 grid size-9 place-items-center rounded-full border text-[#102b3a] transition hover:-translate-y-0.5 hover:text-[#0d5968] dark:text-[#e9f8fb]"
+          : "theme-toggle relative z-40 flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-sm font-semibold text-[#102b3a] transition hover:-translate-y-0.5 dark:text-[#e9f8fb]"
       }
     >
       {compact ? (

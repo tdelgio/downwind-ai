@@ -55,6 +55,18 @@ export interface SeaEnergyObservation {
   source: SourceMeta;
 }
 
+export type MauiShoreId = "north" | "south" | "west";
+
+export interface ShoreOceanObservations {
+  shoreId: MauiShoreId;
+  label: string;
+  buoyId: string;
+  wind: WindObservation;
+  swell: SwellObservation;
+  groundswell: SeaEnergyObservation;
+  bumpEnergy: SeaEnergyObservation;
+}
+
 export interface TideEvent {
   time: string;
   heightFt: number;
@@ -139,6 +151,7 @@ export interface OceanConditionSnapshot {
   bumpEnergy: SeaEnergyObservation;
   tide: TideObservation;
   current: CurrentObservation;
+  shoreObservations: Record<MauiShoreId, ShoreOceanObservations>;
   harborWinds: HarborWindObservation[];
   forecastWindows: ForecastWindow[];
   alerts: WeatherAlert[];

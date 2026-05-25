@@ -11,13 +11,8 @@ export default async function ForecastPage({
   const selectedZone = normalizeZone((await searchParams).zone);
 
   return (
-    <OceanAppShell active="/forecast" oceanStatus={getOceanStatus(snapshot)} marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
+    <OceanAppShell active="/forecast" marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
       <ExtendedForecastOverview selectedZone={selectedZone} snapshot={snapshot} />
     </OceanAppShell>
   );
-}
-
-function getOceanStatus(snapshot: Awaited<ReturnType<typeof getOceanIntelligence>>["snapshot"]) {
-  const direction = snapshot.wind.directionCardinal ?? "Live";
-  return `${direction} trades active`;
 }
