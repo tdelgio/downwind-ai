@@ -20,7 +20,7 @@ export const mauiHarborWindConfigs: HarborWindConfig[] = [
     coordinates: { latitude: 20.895, longitude: -156.469 },
     stationId: "KLIH1",
     source: "ndbc",
-    note: "NOAA/NDBC KLIH1 real-time harbor wind.",
+    note: "NOAA/NOS 1615680 / NDBC KLIH1 inside Kahului Harbor wind.",
   },
   {
     id: "maalaea-harbor",

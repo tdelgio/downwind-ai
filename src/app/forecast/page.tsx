@@ -1,18 +1,13 @@
-import { ExtendedForecastOverview, normalizeZone } from "@/components/ocean/activity-forecast";
+import { ExtendedForecastOverview } from "@/components/ocean/activity-forecast";
 import { OceanAppShell } from "@/components/ocean/shell";
 import { getOceanIntelligence } from "@/lib/ocean";
 
-export default async function ForecastPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ zone?: string | string[] }>;
-}) {
+export default async function ForecastPage() {
   const { snapshot } = await getOceanIntelligence();
-  const selectedZone = normalizeZone((await searchParams).zone);
 
   return (
     <OceanAppShell active="/forecast" marineAlertCount={snapshot.alerts.length} marineAlertHeadline={snapshot.alerts[0]?.headline}>
-      <ExtendedForecastOverview selectedZone={selectedZone} snapshot={snapshot} />
+      <ExtendedForecastOverview snapshot={snapshot} />
     </OceanAppShell>
   );
 }

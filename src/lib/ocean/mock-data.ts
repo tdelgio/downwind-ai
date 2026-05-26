@@ -1,8 +1,10 @@
 import type {
   CurrentObservation,
+  CoastalWindObservation,
   ForecastWindow,
   HarborWindObservation,
   OceanConditionSnapshot,
+  OffshoreBuoyObservation,
   RouteConfig,
   SeaEnergyObservation,
   ShoreOceanObservations,
@@ -185,6 +187,72 @@ export const mockShoreObservations: Record<"north" | "south" | "west", ShoreOcea
   },
 };
 
+export const mockOpenOceanNwSwellObservation: SwellObservation = {
+  heightFt: 8.2,
+  dominantPeriodSec: 16,
+  directionDeg: 320,
+  directionCardinal: "NW",
+  waterTempF: null,
+  source: {
+    source: "Mock NDBC 51001",
+    status: "mock",
+    stationId: "51001",
+    fetchedAt: now,
+    observedAt: "2026-05-21T07:20:00-10:00",
+    freshnessMinutes: 40,
+  },
+};
+
+export const mockOpenOceanNwBumpEnergyObservation: SeaEnergyObservation = {
+  label: "bump-energy",
+  heightFt: 2.4,
+  periodSec: 7,
+  directionDeg: 80,
+  directionCardinal: "E",
+  description: "Open-ocean short-period wind sea proxy.",
+  source: mockOpenOceanNwSwellObservation.source,
+};
+
+export const mockOpenOceanNwGroundswellObservation: SeaEnergyObservation = {
+  label: "groundswell",
+  heightFt: 8.2,
+  periodSec: 16,
+  directionDeg: 320,
+  directionCardinal: "NW",
+  description: "Open-ocean NW groundswell proxy.",
+  source: mockOpenOceanNwSwellObservation.source,
+};
+
+export const mockOffshoreObservations: Record<"lanai-offshore" | "open-ocean-nw", OffshoreBuoyObservation> = {
+  "lanai-offshore": {
+    id: "lanai-offshore",
+    displayName: "Lanai Offshore",
+    purpose: "Outer channel validation buoy between Molokai and Lanai.",
+    stationId: "51213",
+    wind: mockShoreObservations.south.wind,
+    swell: mockSouthSwellObservation,
+    groundswell: mockSouthGroundswellObservation,
+    bumpEnergy: mockSouthBumpEnergyObservation,
+  },
+  "open-ocean-nw": {
+    id: "open-ocean-nw",
+    displayName: "Open Ocean NW",
+    purpose: "Early North Pacific groundswell detection before Maui arrival.",
+    stationId: "51001",
+    wind: {
+      ...mockWindObservation,
+      directionDeg: 40,
+      directionCardinal: "NE",
+      speedKt: 18,
+      gustKt: 25,
+      source: mockOpenOceanNwSwellObservation.source,
+    },
+    swell: mockOpenOceanNwSwellObservation,
+    groundswell: mockOpenOceanNwGroundswellObservation,
+    bumpEnergy: mockOpenOceanNwBumpEnergyObservation,
+  },
+};
+
 export const mockTideObservation: TideObservation = {
   stationId: "1615680",
   stationName: "Kahului, Kahului Harbor, HI",
@@ -268,6 +336,50 @@ export const mockHarborWinds: HarborWindObservation[] = [
   createMockHarborWind("lahaina-harbor", "Lahaina Harbor", "west", { latitude: 20.872, longitude: -156.678 }),
 ];
 
+export const mockCoastalWinds: CoastalWindObservation[] = [
+  {
+    id: "kanaha",
+    name: "Kanaha",
+    profile: "beach-launch",
+    coordinates: { latitude: 20.898, longitude: -156.437 },
+    note: "Mock Kanaha nearshore profile fallback. Real priority is PHOG METAR, then NWS coastal grid.",
+    observation: {
+      speedKt: 20,
+      gustKt: 28,
+      directionDeg: 75,
+      directionCardinal: "ENE",
+      source: {
+        source: "Mock PHOG METAR · Kanaha",
+        status: "mock",
+        stationId: "PHOG",
+        fetchedAt: now,
+        observedAt: now,
+        freshnessMinutes: 0,
+      },
+    },
+  },
+  {
+    id: "kihei",
+    name: "Kihei",
+    profile: "beach-launch",
+    coordinates: { latitude: 20.756, longitude: -156.457 },
+    note: "Mock Kihei nearshore profile fallback. Real priority is NWS coastal grid.",
+    observation: {
+      speedKt: 16,
+      gustKt: 23,
+      directionDeg: 105,
+      directionCardinal: "ESE",
+      source: {
+        source: "Mock NWS coastal grid · Kihei",
+        status: "mock",
+        fetchedAt: now,
+        observedAt: now,
+        freshnessMinutes: 0,
+      },
+    },
+  },
+];
+
 export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRoute): OceanConditionSnapshot {
   return {
     route,
@@ -279,6 +391,8 @@ export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRou
     tide: mockTideObservation,
     current: mockCurrentObservation,
     shoreObservations: mockShoreObservations,
+    offshoreObservations: mockOffshoreObservations,
+    coastalWinds: mockCoastalWinds,
     harborWinds: mockHarborWinds,
     forecastWindows: mockForecastWindows,
     alerts: [],
@@ -290,6 +404,8 @@ export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRou
       mockTideObservation.source,
       mockCurrentObservation.source,
       mockSouthSwellObservation.source,
+      mockOpenOceanNwSwellObservation.source,
+      ...mockCoastalWinds.map((coastal) => coastal.observation.source),
       ...mockHarborWinds.map((harbor) => harbor.observation.source),
       ...mockForecastWindows.map((window) => window.source),
     ],

@@ -36,6 +36,15 @@ export interface HarborWindObservation {
   note: string;
 }
 
+export interface CoastalWindObservation {
+  id: string;
+  name: string;
+  profile: "nearshore" | "beach-launch" | "coastal-texture";
+  coordinates: GeoPoint;
+  observation: WindObservation;
+  note: string;
+}
+
 export interface SwellObservation {
   heightFt: number | null;
   dominantPeriodSec: number | null;
@@ -61,6 +70,19 @@ export interface ShoreOceanObservations {
   shoreId: MauiShoreId;
   label: string;
   buoyId: string;
+  wind: WindObservation;
+  swell: SwellObservation;
+  groundswell: SeaEnergyObservation;
+  bumpEnergy: SeaEnergyObservation;
+}
+
+export type OffshoreBuoyId = "lanai-offshore" | "open-ocean-nw";
+
+export interface OffshoreBuoyObservation {
+  id: OffshoreBuoyId;
+  displayName: string;
+  purpose: string;
+  stationId: string;
   wind: WindObservation;
   swell: SwellObservation;
   groundswell: SeaEnergyObservation;
@@ -152,6 +174,8 @@ export interface OceanConditionSnapshot {
   tide: TideObservation;
   current: CurrentObservation;
   shoreObservations: Record<MauiShoreId, ShoreOceanObservations>;
+  offshoreObservations: Record<OffshoreBuoyId, OffshoreBuoyObservation>;
+  coastalWinds: CoastalWindObservation[];
   harborWinds: HarborWindObservation[];
   forecastWindows: ForecastWindow[];
   alerts: WeatherAlert[];

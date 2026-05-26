@@ -124,6 +124,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
   }
   html {
     @apply font-sans;
@@ -358,6 +359,22 @@
   animation: waterlineMove 6s ease-in-out infinite alternate;
 }
 
+.cam-preview-placeholder {
+  background:
+    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, 0.58), transparent 19%),
+    linear-gradient(180deg, rgba(10, 61, 82, 0.18), rgba(10, 61, 82, 0.34)),
+    repeating-linear-gradient(172deg, rgba(255, 255, 255, 0.34) 0 2px, transparent 2px 26px),
+    linear-gradient(155deg, rgba(15, 111, 133, 0.34) 0 48%, rgba(239, 246, 241, 0.78) 48% 51%, rgba(9, 76, 96, 0.5) 51% 100%);
+}
+
+.dark .cam-preview-placeholder {
+  background:
+    radial-gradient(circle at 78% 18%, rgba(157, 235, 249, 0.28), transparent 20%),
+    linear-gradient(180deg, rgba(7, 23, 35, 0.18), rgba(7, 23, 35, 0.52)),
+    repeating-linear-gradient(172deg, rgba(157, 235, 249, 0.18) 0 2px, transparent 2px 26px),
+    linear-gradient(155deg, rgba(15, 111, 133, 0.26) 0 48%, rgba(17, 67, 88, 0.72) 48% 51%, rgba(4, 16, 26, 0.82) 51% 100%);
+}
+
 .ocean-texture-overlay {
   opacity: 0.18;
   background-image:
@@ -419,9 +436,9 @@
 .dark .ocean-card,
 .dark .ocean-card-soft,
 .dark .ocean-row {
-  background: #071d2a;
-  border-color: rgba(157, 235, 249, 0.3);
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.34);
+  background: #092231;
+  border-color: rgba(123, 207, 222, 0.22);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.38);
   backdrop-filter: none;
 }
 
@@ -467,12 +484,15 @@
 }
 
 .dark .ocean-shell [class*="bg-white"] {
-  background-color: #102a3a !important;
+  background-color: #102f40 !important;
 }
 
 .dark .ocean-shell [class*="bg-[#f7fafa]"],
-.dark .ocean-shell [class*="bg-[#f3f7f8]"] {
-  background-color: #102a3a !important;
+.dark .ocean-shell [class*="bg-[#f3f7f8]"],
+.dark .ocean-shell [class*="bg-[#fbfaf6]"],
+.dark .ocean-shell [class*="bg-[#f4f8f9]"],
+.dark .ocean-shell [class*="bg-[#f8fcfd]"] {
+  background-color: #102f40 !important;
 }
 
 .dark .ocean-shell [class*="ring-[#"],
@@ -483,8 +503,29 @@
 }
 
 .dark .ocean-shell [class*="bg-[#102b3a]"] {
-  background-color: #143547 !important;
+  background-color: #14394c !important;
   color: #e9f8fb !important;
+}
+
+.dark .ocean-shell [class*="bg-[#17242c]"] {
+  background-color: #5be7ff !important;
+  color: #04101a !important;
+}
+
+.dark .ocean-shell [class*="text-[#17242c]"] {
+  color: #f4fbff !important;
+}
+
+.dark .ocean-shell [class*="text-[#b43a22]"] {
+  color: #ff9b7d !important;
+}
+
+.dark .ocean-shell [class*="border-[#d8dedf]"] {
+  border-color: rgba(123, 207, 222, 0.2) !important;
+}
+
+.dark .ocean-shell [class*="shadow-[0_"] {
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28) !important;
 }
 
 .dark .ocean-shell [class*="bg-cyan-50"],
