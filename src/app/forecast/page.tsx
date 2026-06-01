@@ -2,6 +2,8 @@ import { ExtendedForecastOverview } from "@/components/ocean/activity-forecast";
 import { OceanAppShell } from "@/components/ocean/shell";
 import { getOceanIntelligence } from "@/lib/ocean";
 
+export const revalidate = 300;
+
 export default async function ForecastPage() {
   const { snapshot } = await getOceanIntelligence();
 

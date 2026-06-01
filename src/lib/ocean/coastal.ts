@@ -27,6 +27,13 @@ const coastalWindConfigs: CoastalWindConfig[] = [
     coordinates: { latitude: 20.756, longitude: -156.457 },
     note: "Kihei nearshore profile: NWS coastal grid for South Side finish conditions.",
   },
+  {
+    id: "lahaina",
+    name: "Lahaina",
+    profile: "beach-launch",
+    coordinates: { latitude: 20.872, longitude: -156.678 },
+    note: "Lahaina nearshore profile: NWS coastal grid for West Side coastline conditions.",
+  },
 ];
 
 const COASTAL_WIND_CACHE_TTL_MS = 5 * 60 * 1000;

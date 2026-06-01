@@ -2,10 +2,7 @@
 
 Closed beta live ocean-state observations for Maui ocean users.
 
-<<<<<<< HEAD
-=======
 Ocean State is observation-first: live wind, bump energy, swell, tide/current, channels, harbors, rain, alerts, and camera verification. Forecast is secondary and shown as model timeline data only.
->>>>>>> 7754e06 (Improve OceanState responsive layout and live ocean data UX)
 
 ## Run Locally
 
@@ -57,7 +54,10 @@ Future optional variables may include camera stream URLs, feedback routing, AIS 
 - NOAA CO-OPS tides, water levels, and current placeholders
 - NWS hourly forecast and active alerts
 - NOAA HFO marine zones for channel model context
-- Live camera UI placeholders for future ALERTWest / local camera integration
+- ALERTWest public camera inventory with verified snapshot filtering
+- Hawaii DOT links to Hawaii PortCall for live harbor vessel schedules
+
+Live Ocean refreshes its server snapshot every five minutes while the app is open. Individual upstream sources use their own cache windows to avoid unnecessary requests.
 
 ## Beta Status
 

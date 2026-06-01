@@ -378,9 +378,31 @@ export const mockCoastalWinds: CoastalWindObservation[] = [
       },
     },
   },
+  {
+    id: "lahaina",
+    name: "Lahaina",
+    profile: "beach-launch",
+    coordinates: { latitude: 20.872, longitude: -156.678 },
+    note: "Mock Lahaina nearshore profile fallback. Real priority is NWS coastal grid.",
+    observation: {
+      speedKt: 11,
+      gustKt: 18,
+      directionDeg: 75,
+      directionCardinal: "ENE",
+      source: {
+        source: "Mock NWS coastal grid · Lahaina",
+        status: "mock",
+        fetchedAt: now,
+        observedAt: now,
+        freshnessMinutes: 0,
+      },
+    },
+  },
 ];
 
 export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRoute): OceanConditionSnapshot {
+  const kiheiWind = mockCoastalWinds.find((coastal) => coastal.id === "kihei")?.observation;
+  const lahainaWind = mockCoastalWinds.find((coastal) => coastal.id === "lahaina")?.observation;
   return {
     route,
     generatedAt: now,
@@ -390,7 +412,17 @@ export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRou
     bumpEnergy: mockBumpEnergyObservation,
     tide: mockTideObservation,
     current: mockCurrentObservation,
-    shoreObservations: mockShoreObservations,
+    shoreObservations: {
+      ...mockShoreObservations,
+      south: {
+        ...mockShoreObservations.south,
+        wind: kiheiWind ?? mockShoreObservations.south.wind,
+      },
+      west: {
+        ...mockShoreObservations.west,
+        wind: lahainaWind ?? mockShoreObservations.west.wind,
+      },
+    },
     offshoreObservations: mockOffshoreObservations,
     coastalWinds: mockCoastalWinds,
     harborWinds: mockHarborWinds,

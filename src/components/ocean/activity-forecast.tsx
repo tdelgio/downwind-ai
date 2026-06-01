@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   CloudRain,
   Compass,
+  ExternalLink,
   Navigation,
   Ship,
   Waves,
@@ -42,6 +43,8 @@ type VesselActivity = {
   status: "arriving" | "departing" | "docked" | "scheduled";
   harborName: string;
 };
+
+const HAWAII_PORTCALL_URL = "https://hawaii.portcall.com/";
 
 type ChannelConfig = {
   id: Channel;
@@ -767,7 +770,18 @@ function HarborVesselActivity({ harborName, vessels = [] }: { harborName: string
           ))}
         </ul>
       ) : (
-        <p className="mt-2 text-sm font-semibold">No scheduled vessel activity</p>
+        <div className="mt-2">
+          <p className="text-sm font-semibold">Live schedule available from Hawaii PortCall</p>
+          <a
+            href={HAWAII_PORTCALL_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-[#094c60]/14 bg-white/70 px-3 py-1.5 text-xs font-semibold text-[#0d5968] transition hover:bg-white dark:border-white/14 dark:bg-[#091d2b] dark:text-[#9debf9] dark:hover:bg-[#163747]"
+          >
+            Open live vessel schedule
+            <ExternalLink className="size-3.5" />
+          </a>
+        </div>
       )}
     </div>
   );
@@ -1475,11 +1489,11 @@ function formatSeaEnergy(energy: OceanConditionSnapshot["bumpEnergy"]) {
   const meta =
     energy.heightFt === null && energy.label === "groundswell"
       ? "wind sea dominant"
-      : `${energy.periodSec !== null ? `${energy.periodSec}s` : "period unavailable"} · ${energy.directionCardinal ?? "direction unavailable"}`;
+      : `${energy.periodSec !== null ? `${energy.periodSec}s` : "period unavailable"} · ${formatSwellDirection(energy.directionCardinal, energy.directionDeg)}`;
   return {
     height: energy.heightFt !== null ? `${energy.heightFt} ft` : emptyLabel,
     period: energy.periodSec !== null ? `${energy.periodSec}s` : "period unavailable",
-    direction: energy.directionCardinal ?? "direction unavailable",
+    direction: formatSwellDirection(energy.directionCardinal, energy.directionDeg),
     meta,
   };
 }
@@ -1488,8 +1502,13 @@ function formatSwellObservation(swell: OceanConditionSnapshot["swell"]) {
   return {
     height: swell.heightFt !== null ? `${swell.heightFt} ft` : "No live buoy data",
     period: swell.dominantPeriodSec !== null ? `${swell.dominantPeriodSec}s` : "period unavailable",
-    direction: swell.directionCardinal ?? "direction unavailable",
+    direction: formatSwellDirection(swell.directionCardinal, swell.directionDeg),
   };
+}
+
+function formatSwellDirection(cardinal: string | null, degrees: number | null) {
+  const direction = cardinal ?? "direction unavailable";
+  return degrees !== null ? `${direction} · ${Math.round(degrees)}°` : direction;
 }
 
 function formatCurrent(snapshot: OceanConditionSnapshot) {

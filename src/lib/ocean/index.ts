@@ -93,10 +93,12 @@ async function loadOceanConditionSnapshot(route: RouteConfig): Promise<OceanCond
       getNwsAlerts(route.stations.nwsPoint),
     ]);
     const generatedAt = new Date().toISOString();
+    const kiheiWind = coastalWinds.find((coastal) => coastal.id === "kihei")?.observation;
+    const lahainaWind = coastalWinds.find((coastal) => coastal.id === "lahaina")?.observation;
     const shoreObservations: Record<MauiShoreId, ShoreOceanObservations> = {
       north: createShoreObservations("north", "North Shore", route.stations.primaryBuoyId, buoy),
-      south: createShoreObservations("south", "South Side", "51213", southBuoy),
-      west: createShoreObservations("west", "West Side", "51213", southBuoy),
+      south: createShoreObservations("south", "South Side", "51213", southBuoy, kiheiWind),
+      west: createShoreObservations("west", "West Side", "51213", southBuoy, lahainaWind),
     };
     const offshoreObservations: Record<OffshoreBuoyId, OffshoreBuoyObservation> = {
       "lanai-offshore": createOffshoreBuoyObservation(
@@ -180,12 +182,13 @@ function createShoreObservations(
   label: string,
   buoyId: string,
   observations: Awaited<ReturnType<typeof getNdbcObservations>>,
+  coastalWind?: ShoreOceanObservations["wind"],
 ): ShoreOceanObservations {
   return {
     shoreId,
     label,
     buoyId,
-    wind: observations.wind,
+    wind: coastalWind ?? observations.wind,
     swell: observations.swell,
     groundswell: observations.groundswell,
     bumpEnergy: observations.bumpEnergy,
