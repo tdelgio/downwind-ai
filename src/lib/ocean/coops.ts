@@ -149,30 +149,59 @@ export async function getCoopsCurrentPredictionObservation(
   stationId: string,
   stationName: string,
 ): Promise<CurrentObservation> {
+  const [station, bin] = stationId.split("_");
   const sourceUrl = `https://tidesandcurrents.noaa.gov/noaacurrents/predictions.html?id=${stationId}`;
   try {
-    const response = await fetch(sourceUrl, {
+    const response = await fetch(`${COOPS_API_URL}?${new URLSearchParams({
+      begin_date: formatHawaiiDate(new Date()),
+      range: "24",
+      station,
+      product: "currents_predictions",
+      bin,
+      time_zone: "lst_ldt",
+      units: "english",
+      format: "json",
+    })}`, {
       next: { revalidate: 900 },
       signal: AbortSignal.timeout(COOPS_FETCH_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`CO-OPS current prediction failed with ${response.status}`);
-    const predictions = parseCurrentPredictionTable(await response.text());
-    const next = predictions.find((prediction) => new Date(prediction.time).getTime() >= Date.now()) ?? predictions.at(-1);
-    if (!next) throw new Error("CO-OPS current prediction table was empty");
+    const json = (await response.json()) as {
+      current_predictions?: {
+        cp?: Array<{
+          Time: string;
+          Velocity_Major: number;
+          meanFloodDir: number;
+          meanEbbDir: number;
+        }>;
+      };
+    };
+    const predictions = json.current_predictions?.cp ?? [];
+    const now = Date.now();
+    const closest = predictions.reduce<(typeof predictions)[number] | null>((best, prediction) => {
+      if (!best) return prediction;
+      const bestDiff = Math.abs(new Date(normalizeHawaiiTimestamp(best.Time)).getTime() - now);
+      const predictionDiff = Math.abs(new Date(normalizeHawaiiTimestamp(prediction.Time)).getTime() - now);
+      return predictionDiff < bestDiff ? prediction : best;
+    }, null);
+    if (!closest) throw new Error("CO-OPS current prediction data was empty");
+    const speedKt = Math.abs(closest.Velocity_Major);
+    const trend = Math.abs(closest.Velocity_Major) < 0.05 ? "slack" : closest.Velocity_Major > 0 ? "flood" : "ebb";
+    const directionDeg = trend === "slack" ? null : trend === "flood" ? closest.meanFloodDir : closest.meanEbbDir;
     return {
       stationId,
       stationName,
-      speedKt: next.speedKt,
-      directionDeg: null,
-      directionCardinal: null,
-      trend: next.event,
+      speedKt: Math.round(speedKt * 100) / 100,
+      directionDeg,
+      directionCardinal: directionDeg !== null ? degreesToCardinal(directionDeg) : null,
+      trend,
       source: {
         source: "NOAA current prediction",
         status: "stale",
         stationId,
         sourceUrl,
         fetchedAt: new Date().toISOString(),
-        observedAt: next.time,
+        observedAt: normalizeHawaiiTimestamp(closest.Time),
       },
     };
   } catch (error) {
@@ -297,23 +326,6 @@ function createUnavailableCurrentObservation(stationId?: string, error?: unknown
       error: error instanceof Error ? error.message : error ? "Unknown CO-OPS currents error" : undefined,
     },
   };
-}
-
-function parseCurrentPredictionTable(html: string) {
-  return [...html.matchAll(/<tr><td>([^<]+)<\/td><td>(flood|ebb|slack)<\/td><td[^>]*>([^<]+)<\/td><\/tr>/gi)]
-    .map((match) => ({
-      time: normalizeCurrentPredictionTimestamp(match[1]),
-      event: match[2].toLowerCase() as CurrentObservation["trend"],
-      speedKt: match[3] === "-" ? 0 : Math.abs(Number.parseFloat(match[3])),
-    }))
-    .filter((prediction) => Number.isFinite(prediction.speedKt));
-}
-
-function normalizeCurrentPredictionTimestamp(timestamp: string) {
-  const match = timestamp.match(/(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})\s+(AM|PM)/i);
-  if (!match) return normalizeHawaiiTimestamp(timestamp);
-  const hour = Number.parseInt(match[4], 10) % 12 + (match[6].toUpperCase() === "PM" ? 12 : 0);
-  return `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}T${String(hour).padStart(2, "0")}:${match[5]}:00-10:00`;
 }
 
 function findNextEvent(events: TideEvent[], type: TideEvent["type"]): TideEvent | null {

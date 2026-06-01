@@ -402,7 +402,7 @@ function ModelTimeline({
               </div>
               <div className="mt-3 space-y-2">
                 <ForecastWindCard wind={wind} tone={tone} />
-                <ForecastEnergyCard bumpEnergy={day.bumpEnergy} groundswell={day.groundswell} />
+                <ForecastEnergyCard groundswell={day.groundswell} />
                 <ForecastRainCard rain={day.rain} detail={day.read} />
               </div>
             </article>
@@ -438,7 +438,6 @@ function ForecastWindCard({ wind, tone }: { wind: ReturnType<typeof parseWind>; 
 function ForecastEnergyCard({
   groundswell,
 }: {
-  bumpEnergy: ReturnType<typeof formatMarineForecastEnergy>;
   groundswell: ReturnType<typeof formatMarineForecastEnergy>;
 }) {
   const groundswellValue = groundswell.height === "No data" ? "none" : groundswell.height;
@@ -586,7 +585,7 @@ function RunWindCard({ shore, points }: { shore: Shore; points: RunWindPoint[] }
                 ) : null}
                 <div className="min-w-[6.5rem] flex-1 px-2 py-2.5">
                   <div className="flex min-h-7 items-start justify-between gap-1">
-                    <p className="text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.08em] text-[#30444c] dark:text-[#d8e7ec]">
+                    <p className="-ml-1 text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.08em] text-[#30444c] dark:text-[#d8e7ec]">
                       {point.label}
                     </p>
                     <RunSourceDisclosure source={point.source} />
@@ -671,8 +670,6 @@ function OffshoreWatersSection({ snapshot }: { snapshot: OceanConditionSnapshot 
 }
 
 function OffshoreBuoyCard({ buoy }: { buoy: OceanConditionSnapshot["offshoreObservations"][keyof OceanConditionSnapshot["offshoreObservations"]] }) {
-  const swell = formatSwellObservation(buoy.swell);
-  const bumpEnergy = formatSeaEnergy(buoy.bumpEnergy);
   const groundswell = formatSeaEnergy(buoy.groundswell);
   const wind = windObservationToDisplayWithFallback(buoy.wind, { direction: "ESE", speed: "model estimate", gust: "-", degrees: 113 });
   const insight = getOffshoreChannelInsight(buoy);
@@ -686,9 +683,7 @@ function OffshoreBuoyCard({ buoy }: { buoy: OceanConditionSnapshot["offshoreObse
         </div>
         <SourceFreshnessBadge source={buoy.swell.source} compact />
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-4">
-        <ConditionMetric icon={Waves} label="Wave Height" value={swell.height} detail={`${swell.period} · ${swell.direction}`} />
-        <ConditionMetric icon={Waves} label="Wind Bumps" value={bumpEnergy.height} detail={`${bumpEnergy.period} · ${bumpEnergy.direction}`} />
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <ConditionMetric icon={Waves} label="Ground Swell" value={groundswell.height} detail={groundswell.meta} />
         <ConditionMetric icon={Navigation} label="Wind" value={`${wind.direction} ${wind.speed}`} detail={`gust ${wind.gust}`} source={buoy.wind.source} />
       </div>
@@ -1525,14 +1520,6 @@ function formatSeaEnergy(energy: OceanConditionSnapshot["bumpEnergy"]) {
     period: energy.periodSec !== null ? `${energy.periodSec}s` : "period unavailable",
     direction: formatSwellDirection(energy.directionCardinal, energy.directionDeg),
     meta,
-  };
-}
-
-function formatSwellObservation(swell: OceanConditionSnapshot["swell"]) {
-  return {
-    height: swell.heightFt !== null ? `${swell.heightFt} ft` : "No live buoy data",
-    period: swell.dominantPeriodSec !== null ? `${swell.dominantPeriodSec}s` : "period unavailable",
-    direction: formatSwellDirection(swell.directionCardinal, swell.directionDeg),
   };
 }
 
