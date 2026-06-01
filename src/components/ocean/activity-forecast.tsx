@@ -16,6 +16,7 @@ import { RunSourcePopover } from "@/components/ocean/run-source-popover";
 import type {
   ForecastWindow,
   HarborWindObservation,
+  MarineForecastDay,
   OceanConditionSnapshot,
   ShoreOceanObservations,
 } from "@/lib/ocean";
@@ -194,7 +195,7 @@ export function HomeForecastOverview({
         </div>
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
           <TideCard tide={snapshot.shoreTides[selectedShore]} />
-          <CurrentCard snapshot={snapshot} />
+          <CurrentCard current={snapshot.shoreCurrents[selectedShore]} />
           <RainRiskCard windows={snapshot.shoreForecastWindows[selectedShore]} />
         </div>
       </section>
@@ -382,9 +383,8 @@ function ModelTimeline({
   const days = buildFiveDayForecast(
     snapshot.shoreForecastWindows[shoreOcean.shoreId],
     zone,
+    snapshot.marineForecastDays[zone],
   );
-  const bumpEnergy = formatSeaEnergy(shoreOcean.bumpEnergy);
-  const groundswell = formatSeaEnergy(shoreOcean.groundswell);
 
   return (
     <section className="overflow-hidden rounded-[1.25rem] border border-[#d8dedf] bg-[#fbfaf6] p-2 shadow-[0_14px_32px_rgba(8,74,92,0.07)] dark:border-white/14 dark:bg-[#0b2230] sm:p-3">
@@ -402,7 +402,7 @@ function ModelTimeline({
               </div>
               <div className="mt-3 space-y-2">
                 <ForecastWindCard wind={wind} tone={tone} />
-                <ForecastEnergyCard bumpEnergy={bumpEnergy} groundswell={groundswell} />
+                <ForecastEnergyCard bumpEnergy={day.bumpEnergy} groundswell={day.groundswell} />
                 <ForecastRainCard rain={day.rain} detail={day.read} />
               </div>
             </article>
@@ -436,26 +436,17 @@ function ForecastWindCard({ wind, tone }: { wind: ReturnType<typeof parseWind>; 
 }
 
 function ForecastEnergyCard({
-  bumpEnergy,
   groundswell,
 }: {
-  bumpEnergy: ReturnType<typeof formatSeaEnergy>;
-  groundswell: ReturnType<typeof formatSeaEnergy>;
+  bumpEnergy: ReturnType<typeof formatMarineForecastEnergy>;
+  groundswell: ReturnType<typeof formatMarineForecastEnergy>;
 }) {
-  const groundswellValue = groundswell.height === "No groundswell" ? "none" : groundswell.height;
-  const groundswellDetail = groundswell.height === "No groundswell" ? "wind sea dominant" : groundswell.meta;
+  const groundswellValue = groundswell.height === "No data" ? "none" : groundswell.height;
+  const groundswellDetail = groundswell.height === "No data" ? "no published long-period swell" : groundswell.meta;
   return (
     <div className="rounded-xl border border-blue-900/12 bg-[#f4f8f9] p-3 dark:border-white/12 dark:bg-[#071d2a]">
-      <div className="grid grid-cols-2 gap-2">
-        <div className="border-r border-[#094c60]/10 pr-2 dark:border-white/12">
-          <div className="flex items-center gap-1.5 text-[0.58rem] font-semibold uppercase tracking-[0.08em] text-[#61747c]">
-            <Waves className="size-3.5" />
-            Bumps
-          </div>
-          <p className="weather-data mt-1 text-xl leading-none text-[#102b3a]">{bumpEnergy.height}</p>
-          <p className="mt-1 text-xs font-semibold text-[#61747c]">{bumpEnergy.period} · {bumpEnergy.direction}</p>
-        </div>
-        <div className="pl-1">
+      <div>
+        <div>
           <div className="flex items-center gap-1.5 text-[0.58rem] font-semibold uppercase tracking-[0.08em] text-[#61747c]">
             <Waves className="size-3.5" />
             Ground Swell
@@ -595,7 +586,7 @@ function RunWindCard({ shore, points }: { shore: Shore; points: RunWindPoint[] }
                 ) : null}
                 <div className="min-w-[6.5rem] flex-1 px-2 py-2.5">
                   <div className="flex min-h-7 items-start justify-between gap-1">
-                    <p className="text-[0.58rem] font-semibold uppercase leading-4 tracking-[0.08em] text-[#30444c] dark:text-[#d8e7ec]">
+                    <p className="text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.08em] text-[#30444c] dark:text-[#d8e7ec]">
                       {point.label}
                     </p>
                     <RunSourceDisclosure source={point.source} />
@@ -913,8 +904,7 @@ function HarborWindCard({
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <ConditionMetric icon={Navigation} label="Launch / Entry" value={bumpEnergy.height} detail={`${bumpEnergy.period} · ${bumpEnergy.direction} · swell direction for entry`} />
-        <ConditionMetric icon={Compass} label="Current" value={formatCurrent(snapshot)} detail={`${formatTideTrend(tide.trend)} tide`} />
-        <ConditionMetric icon={Waves} label="Tide" value={formatTideHeight(tide)} detail={`${formatTideTrend(tide.trend)} · ${tide.stationName}`} source={tide.source} />
+        <ConditionMetric icon={Waves} label="Tide" value={formatTideTrend(tide.trend)} detail={`${formatNextTide(tide)} · ${tide.stationName}`} source={tide.source} />
         <ConditionMetric icon={CloudRain} label="Visibility" value={formatRain(forecastWindows)} detail={getRainImpact(forecastWindows)} source={forecastWindows[0]?.source} />
       </div>
       <HarborMarineAlerts alerts={snapshot.alerts} />
@@ -1034,7 +1024,7 @@ function LiveSeaInlineCard({
   );
 }
 
-function CurrentCard({ snapshot }: { snapshot: OceanConditionSnapshot }) {
+function CurrentCard({ current }: { current: OceanConditionSnapshot["current"] }) {
   return (
     <section className="ocean-card rounded-[1.5rem] border border-blue-800/18 bg-[#dbeafe] p-5 dark:border-blue-200/20 dark:bg-[#0c2940]">
       <div className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-3">
@@ -1042,47 +1032,34 @@ function CurrentCard({ snapshot }: { snapshot: OceanConditionSnapshot }) {
           <Compass className="size-5 text-blue-700" />
           <CategoryPill label="Current" tone="tide" />
         </div>
-        <SourceFreshnessBadge source={snapshot.current.source} compact />
+        <SourceFreshnessBadge source={current.source} compact />
       </div>
       <p className="weather-data mt-5 text-4xl leading-none text-blue-950">
-        {formatCurrent(snapshot)}
+        {formatCurrentObservation(current)}
       </p>
       <p className="mt-3 text-sm capitalize leading-6 text-blue-900/75">
-        {snapshot.current.trend} · {getCurrentSourceLabel(snapshot.current.source)}
+        {current.trend} · {getCurrentSourceLabel(current.source)}
       </p>
     </section>
   );
 }
 
 function TideCard({ tide }: { tide: OceanConditionSnapshot["tide"] }) {
-  const next =
-    tide.trend === "rising"
-      ? tide.nextHigh
-      : tide.nextLow;
+  const next = getNextTideEvent(tide);
   return (
     <section className="ocean-card rounded-[1.5rem] border border-indigo-800/18 bg-[#e0e7ff] p-5 dark:border-indigo-200/20 dark:bg-[#162542]">
       <div className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-3">
         <CategoryPill label="Tide" tone="tide" />
         <SourceFreshnessBadge source={tide.source} compact />
       </div>
-      <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-indigo-900/60">
-            Tide Trend
-          </p>
-          <div className="mt-1 flex items-center gap-2">
-            <TideTrendIcon trend={tide.trend} />
-            <p className="weather-data text-4xl capitalize leading-none text-indigo-950">
-              {formatTideTrend(tide.trend)}
-            </p>
-          </div>
-        </div>
-        <div className="text-left sm:text-right">
-          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-indigo-900/60">
-            Tide Height
-          </p>
-          <p className="weather-data mt-1 text-2xl text-indigo-950">
-            {formatTideHeight(tide)}
+      <div className="mt-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.1em] text-indigo-900/60">
+          Tide Trend
+        </p>
+        <div className="mt-1 flex items-center gap-2">
+          <TideTrendIcon trend={tide.trend} />
+          <p className="weather-data text-4xl capitalize leading-none text-indigo-950">
+            {formatTideTrend(tide.trend)}
           </p>
         </div>
       </div>
@@ -1091,7 +1068,7 @@ function TideCard({ tide }: { tide: OceanConditionSnapshot["tide"] }) {
         {next
           ? `${formatTime(next.time)} · ${next.heightFt} ft`
           : "not available"}
-        . Falling/slack tide tends to be easier around harbor entries.
+        .
       </p>
     </section>
   );
@@ -1149,7 +1126,9 @@ function SourceFreshnessBadge({
       ? freshness
       : source.status === "missing" || source.status === "error"
         ? "No live data"
-        : "Model estimate";
+        : source.source.includes("current prediction")
+          ? "NOAA prediction"
+          : "Model estimate";
   const label = isMarineZone ? `${station} · ${source.status === "live" ? "Live" : "Live: no data"}` : `${station} · ${statusLabel}`;
   const className = `inline-flex w-fit max-w-full items-center gap-1 justify-self-start rounded-full border border-[#cbd9dd]/70 bg-white/55 ${compact ? "px-1.5 py-0.5 text-[0.54rem]" : "px-2.5 py-1 text-[0.68rem]"} font-semibold uppercase tracking-[0.04em] text-[#5f7078] dark:border-white/10 dark:bg-[#102a3a]/70 dark:text-[#a9c0c8]`;
   const content = (
@@ -1189,6 +1168,8 @@ function getSourceDisplayName(source: SourceLike) {
   if (source.stationId === "PHZ120") return "Pailolo";
   if (source.stationId === "PHZ116") return "Kaiwi";
   if (source.stationId === "PHZ121") return "Alenuihaha";
+  if (source.stationId === "HAI1121_28") return "Alalakeiki Channel";
+  if (source.stationId === "HAI1119_29") return "Auau Channel";
   if (source.stationId) return source.stationId;
   if (source.source.toLowerCase().includes("mock noaa co-ops currents")) return "Current";
   return getCompactSourceName(source.source);
@@ -1196,6 +1177,9 @@ function getSourceDisplayName(source: SourceLike) {
 
 function getCurrentSourceLabel(source: SourceLike) {
   if (source.status === "live") return getSourceDisplayName(source);
+  if (source.source.includes("current prediction") && source.status === "stale") {
+    return `${getSourceDisplayName(source)} · NOAA prediction`;
+  }
   if (source.status === "missing" || source.status === "error") return "No live current data";
   return "Model estimate";
 }
@@ -1558,15 +1542,32 @@ function formatSwellDirection(cardinal: string | null, degrees: number | null) {
 }
 
 function formatCurrent(snapshot: OceanConditionSnapshot) {
-  if (snapshot.current.speedKt === null) return "No live current";
-  const direction = snapshot.current.directionCardinal ? ` ${snapshot.current.directionCardinal}` : "";
-  return `${snapshot.current.speedKt} kt${direction}`;
+  return formatCurrentObservation(snapshot.current);
+}
+
+function formatCurrentObservation(current: OceanConditionSnapshot["current"]) {
+  if (current.speedKt === null) return "No NOAA current";
+  const direction = current.directionCardinal ? ` ${current.directionCardinal}` : "";
+  return `${current.speedKt} kt${direction}`;
 }
 
 function formatTideHeight(tide: OceanConditionSnapshot["tide"]) {
   return tide.currentWaterLevelFt !== null
     ? `${tide.currentWaterLevelFt} ft`
     : "Prediction only";
+}
+
+function formatNextTide(tide: OceanConditionSnapshot["tide"]) {
+  const next = getNextTideEvent(tide);
+  return next ? `Next ${next.type} ${formatTime(next.time)}` : "Next tide unavailable";
+}
+
+function getNextTideEvent(tide: OceanConditionSnapshot["tide"]) {
+  if (tide.trend === "rising") return tide.nextHigh;
+  if (tide.trend === "falling") return tide.nextLow;
+  return [tide.nextHigh, tide.nextLow]
+    .filter((event): event is NonNullable<typeof event> => Boolean(event))
+    .sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime())[0] ?? null;
 }
 
 function formatRain(windows: ForecastWindow[]) {
@@ -1666,9 +1667,18 @@ function directionDifference(a: number, b: number) {
   return diff > 180 ? 360 - diff : diff;
 }
 
-function buildFiveDayForecast(windows: ForecastWindow[], zone: Zone) {
+function buildFiveDayForecast(
+  windows: ForecastWindow[],
+  zone: Zone,
+  marineForecastDays: MarineForecastDay[],
+) {
   const fallback = buildFallbackForecast(zone);
-  if (windows.length < 6) return fallback;
+  if (windows.length < 6) {
+    return fallback.map((day) => ({
+      ...day,
+      ...getMarineForecastEnergy(day.day, marineForecastDays),
+    }));
+  }
 
   const grouped = new Map<string, ForecastWindow[]>();
   for (const window of windows) {
@@ -1699,19 +1709,55 @@ function buildFiveDayForecast(windows: ForecastWindow[], zone: Zone) {
       return {
         day: day.toUpperCase(),
         wind: `${direction} ${range(windValues)} kt${gustValues.length ? ` G${Math.max(...gustValues)}` : ""}`,
-        swell: zone === "windward" ? fallback[0].swell : "2-4 ft @ 12s SSW",
         rain: rainValues.length
           ? `${Math.round(rainValues.reduce((sum, value) => sum + value, 0) / rainValues.length)}%`
           : "-",
         read: dayWindows[0]?.shortForecast ?? "Forecast available.",
+        ...getMarineForecastEnergy(day, marineForecastDays),
       };
     });
 
   while (days.length < 5) {
-    days.push(fallback[days.length]);
+    const fallbackDay = fallback[days.length];
+    days.push({
+      ...fallbackDay,
+      ...getMarineForecastEnergy(fallbackDay.day, marineForecastDays),
+    });
   }
 
-  return days.length ? days : fallback;
+  return days.length
+    ? days
+    : fallback.map((day) => ({
+        ...day,
+        ...getMarineForecastEnergy(day.day, marineForecastDays),
+      }));
+}
+
+function getMarineForecastEnergy(day: string, marineForecastDays: MarineForecastDay[]) {
+  const weekday = day.split(/\s+/)[0]?.toUpperCase();
+  const marineDay = marineForecastDays.find((candidate) => {
+    const candidateLabel = candidate.dayLabel === "TODAY"
+      ? new Intl.DateTimeFormat("en-US", {
+          weekday: "long",
+          timeZone: "Pacific/Honolulu",
+        }).format(new Date()).toUpperCase()
+      : candidate.dayLabel;
+    return candidateLabel === weekday;
+  });
+  return {
+    bumpEnergy: formatMarineForecastEnergy(marineDay?.bumpEnergy),
+    groundswell: formatMarineForecastEnergy(marineDay?.groundswell),
+  };
+}
+
+function formatMarineForecastEnergy(energy?: MarineForecastDay["bumpEnergy"]) {
+  return {
+    height: energy?.heightFt !== null && energy?.heightFt !== undefined ? `${energy.heightFt} ft` : "No data",
+    meta:
+      energy?.periodSec !== null && energy?.periodSec !== undefined
+        ? `${energy.periodSec}s · ${energy.directionCardinal ?? "direction unavailable"}`
+        : "not published",
+  };
 }
 
 function range(values: number[]) {

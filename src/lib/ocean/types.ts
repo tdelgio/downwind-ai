@@ -129,6 +129,21 @@ export interface ForecastWindow {
   source: SourceMeta;
 }
 
+export interface MarineForecastEnergy {
+  heightFt: number | null;
+  periodSec: number | null;
+  directionCardinal: string | null;
+}
+
+export interface MarineForecastDay {
+  dayLabel: string;
+  seas: string | null;
+  bumpEnergy: MarineForecastEnergy;
+  groundswell: MarineForecastEnergy;
+  rainSummary: string | null;
+  source: SourceMeta;
+}
+
 export interface WeatherAlert {
   id: string;
   headline: string;
@@ -175,12 +190,14 @@ export interface OceanConditionSnapshot {
   tide: TideObservation;
   shoreTides: Record<MauiShoreId, TideObservation>;
   current: CurrentObservation;
+  shoreCurrents: Record<MauiShoreId, CurrentObservation>;
   shoreObservations: Record<MauiShoreId, ShoreOceanObservations>;
   offshoreObservations: Record<OffshoreBuoyId, OffshoreBuoyObservation>;
   coastalWinds: CoastalWindObservation[];
   harborWinds: HarborWindObservation[];
   forecastWindows: ForecastWindow[];
   shoreForecastWindows: Record<MauiShoreId, ForecastWindow[]>;
+  marineForecastDays: Record<"windward" | "leeward", MarineForecastDay[]>;
   alerts: WeatherAlert[];
   sources: SourceMeta[];
 }

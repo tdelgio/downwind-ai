@@ -145,6 +145,41 @@ export async function getCoopsCurrentObservation(stationId?: string): Promise<Cu
   }
 }
 
+export async function getCoopsCurrentPredictionObservation(
+  stationId: string,
+  stationName: string,
+): Promise<CurrentObservation> {
+  const sourceUrl = `https://tidesandcurrents.noaa.gov/noaacurrents/predictions.html?id=${stationId}`;
+  try {
+    const response = await fetch(sourceUrl, {
+      next: { revalidate: 900 },
+      signal: AbortSignal.timeout(COOPS_FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`CO-OPS current prediction failed with ${response.status}`);
+    const predictions = parseCurrentPredictionTable(await response.text());
+    const next = predictions.find((prediction) => new Date(prediction.time).getTime() >= Date.now()) ?? predictions.at(-1);
+    if (!next) throw new Error("CO-OPS current prediction table was empty");
+    return {
+      stationId,
+      stationName,
+      speedKt: next.speedKt,
+      directionDeg: null,
+      directionCardinal: null,
+      trend: next.event,
+      source: {
+        source: "NOAA current prediction",
+        status: "stale",
+        stationId,
+        sourceUrl,
+        fetchedAt: new Date().toISOString(),
+        observedAt: next.time,
+      },
+    };
+  } catch (error) {
+    return createUnavailableCurrentObservation(stationId, error, sourceUrl);
+  }
+}
+
 async function fetchCurrentVelocity(stationId: string): Promise<CoopsCurrent[]> {
   const params = new URLSearchParams({
     product: "currents",
@@ -245,7 +280,7 @@ function formatHawaiiDate(date: Date) {
   return `${values.year}${values.month}${values.day}`;
 }
 
-function createUnavailableCurrentObservation(stationId?: string, error?: unknown): CurrentObservation {
+function createUnavailableCurrentObservation(stationId?: string, error?: unknown, sourceUrl?: string): CurrentObservation {
   return {
     stationId: stationId ?? "no-live-current-station",
     stationName: "No active Maui current sensor configured",
@@ -257,11 +292,28 @@ function createUnavailableCurrentObservation(stationId?: string, error?: unknown
       source: "NOAA CO-OPS currents",
       status: "missing",
       stationId: stationId && !stationId.startsWith("mock-") ? stationId : undefined,
-      sourceUrl: "https://tidesandcurrents.noaa.gov/currents_info.html",
+      sourceUrl: sourceUrl ?? "https://tidesandcurrents.noaa.gov/currents_info.html",
       fetchedAt: new Date().toISOString(),
       error: error instanceof Error ? error.message : error ? "Unknown CO-OPS currents error" : undefined,
     },
   };
+}
+
+function parseCurrentPredictionTable(html: string) {
+  return [...html.matchAll(/<tr><td>([^<]+)<\/td><td>(flood|ebb|slack)<\/td><td[^>]*>([^<]+)<\/td><\/tr>/gi)]
+    .map((match) => ({
+      time: normalizeCurrentPredictionTimestamp(match[1]),
+      event: match[2].toLowerCase() as CurrentObservation["trend"],
+      speedKt: match[3] === "-" ? 0 : Math.abs(Number.parseFloat(match[3])),
+    }))
+    .filter((prediction) => Number.isFinite(prediction.speedKt));
+}
+
+function normalizeCurrentPredictionTimestamp(timestamp: string) {
+  const match = timestamp.match(/(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})\s+(AM|PM)/i);
+  if (!match) return normalizeHawaiiTimestamp(timestamp);
+  const hour = Number.parseInt(match[4], 10) % 12 + (match[6].toUpperCase() === "PM" ? 12 : 0);
+  return `${match[1]}-${match[2].padStart(2, "0")}-${match[3].padStart(2, "0")}T${String(hour).padStart(2, "0")}:${match[5]}:00-10:00`;
 }
 
 function findNextEvent(events: TideEvent[], type: TideEvent["type"]): TideEvent | null {

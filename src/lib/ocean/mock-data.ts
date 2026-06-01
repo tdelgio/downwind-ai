@@ -430,6 +430,11 @@ export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRou
       },
     },
     current: mockCurrentObservation,
+    shoreCurrents: {
+      north: mockCurrentObservation,
+      south: mockCurrentObservation,
+      west: mockCurrentObservation,
+    },
     shoreObservations: {
       ...mockShoreObservations,
       south: {
@@ -449,6 +454,10 @@ export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRou
       north: mockForecastWindows,
       south: mockForecastWindows,
       west: mockForecastWindows,
+    },
+    marineForecastDays: {
+      windward: [],
+      leeward: [],
     },
     alerts: [],
     sources: [
