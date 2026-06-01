@@ -1,4 +1,4 @@
-import { mockCurrentObservation, mockTideObservation } from "./mock-data";
+import { mockTideObservation } from "./mock-data";
 import type { CurrentObservation, SourceMeta, TideEvent, TideObservation, TideTrend } from "./types";
 
 const COOPS_API_URL = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter";
@@ -36,8 +36,9 @@ export async function getCoopsTideObservation(stationId: string): Promise<TideOb
       status: "live",
       stationId,
       fetchedAt,
-      observedAt: waterLevels.at(-1)?.t,
-      freshnessMinutes: waterLevels.at(-1)?.t ? minutesBetween(waterLevels.at(-1)!.t, fetchedAt) : undefined,
+      sourceUrl: getCoopsStationUrl(stationId),
+      observedAt: waterLevels.at(-1)?.t ? normalizeHawaiiTimestamp(waterLevels.at(-1)!.t) : undefined,
+      freshnessMinutes: waterLevels.at(-1)?.t ? minutesBetween(normalizeHawaiiTimestamp(waterLevels.at(-1)!.t), fetchedAt) : undefined,
     };
     const events = predictions.map(parsePrediction).filter((event): event is TideEvent => Boolean(event));
     const currentWaterLevelFt = waterLevels.at(-1)?.v ? Number(waterLevels.at(-1)!.v) : null;
@@ -66,8 +67,50 @@ export async function getCoopsTideObservation(stationId: string): Promise<TideOb
   }
 }
 
+export async function getCoopsTidePredictionObservation(stationId: string, stationName: string): Promise<TideObservation> {
+  try {
+    const predictions = await fetchTidePredictions(stationId);
+    const fetchedAt = new Date().toISOString();
+    const events = predictions.map(parsePrediction).filter((event): event is TideEvent => Boolean(event));
+    return {
+      stationId,
+      stationName,
+      currentWaterLevelFt: null,
+      trend: inferPredictionTrend(events),
+      nextHigh: findNextEvent(events, "high"),
+      nextLow: findNextEvent(events, "low"),
+      predictions: events,
+      source: {
+        source: "NOAA tide prediction",
+        status: "stale",
+        stationId,
+        sourceUrl: getCoopsStationUrl(stationId),
+        fetchedAt,
+      },
+    };
+  } catch (error) {
+    return {
+      stationId,
+      stationName,
+      currentWaterLevelFt: null,
+      trend: "unknown",
+      nextHigh: null,
+      nextLow: null,
+      predictions: [],
+      source: {
+        source: "NOAA tide prediction unavailable",
+        stationId,
+        sourceUrl: getCoopsStationUrl(stationId),
+        status: "mock",
+        fetchedAt: new Date().toISOString(),
+        error: error instanceof Error ? error.message : "Unknown CO-OPS prediction error",
+      },
+    };
+  }
+}
+
 export async function getCoopsCurrentObservation(stationId?: string): Promise<CurrentObservation> {
-  if (!stationId) return mockCurrentObservation;
+  if (!stationId || stationId.startsWith("mock-")) return createUnavailableCurrentObservation(stationId);
 
   try {
     const [metadata, currents] = await Promise.all([
@@ -83,6 +126,7 @@ export async function getCoopsCurrentObservation(stationId?: string): Promise<Cu
       status: "live",
       stationId,
       fetchedAt,
+      sourceUrl: getCoopsStationUrl(stationId),
       observedAt: latest?.t,
       freshnessMinutes: latest?.t ? minutesBetween(latest.t, fetchedAt) : undefined,
     };
@@ -97,16 +141,7 @@ export async function getCoopsCurrentObservation(stationId?: string): Promise<Cu
       source,
     };
   } catch (error) {
-    return {
-      ...mockCurrentObservation,
-      stationId,
-      source: {
-        ...mockCurrentObservation.source,
-        stationId,
-        status: "mock",
-        error: error instanceof Error ? error.message : "Unknown CO-OPS currents error",
-      },
-    };
+    return createUnavailableCurrentObservation(stationId, error);
   }
 }
 
@@ -130,10 +165,11 @@ async function fetchCurrentVelocity(stationId: string): Promise<CoopsCurrent[]> 
 }
 
 async function fetchTidePredictions(stationId: string): Promise<CoopsPrediction[]> {
+  const beginDate = formatHawaiiDate(new Date());
   const params = new URLSearchParams({
     product: "predictions",
     application: "downwind_ai",
-    begin_date: "today",
+    begin_date: beginDate,
     range: "72",
     datum: "MLLW",
     station: stationId,
@@ -148,7 +184,9 @@ async function fetchTidePredictions(stationId: string): Promise<CoopsPrediction[
   });
   if (!response.ok) throw new Error(`CO-OPS tide predictions failed with ${response.status}`);
   const json = (await response.json()) as { predictions?: CoopsPrediction[] };
-  return json.predictions ?? [];
+  const predictions = json.predictions ?? [];
+  if (!predictions.length) throw new Error(`CO-OPS tide predictions returned no data for ${stationId}`);
+  return predictions;
 }
 
 async function fetchCurrentWaterLevels(stationId: string): Promise<CoopsWaterLevel[]> {
@@ -185,9 +223,44 @@ function parsePrediction(prediction: CoopsPrediction): TideEvent | null {
   const heightFt = Number(prediction.v);
   if (!Number.isFinite(heightFt) || !prediction.type) return null;
   return {
-    time: prediction.t,
+    time: normalizeHawaiiTimestamp(prediction.t),
     heightFt,
     type: prediction.type === "H" ? "high" : "low",
+  };
+}
+
+function normalizeHawaiiTimestamp(timestamp: string) {
+  if (/[zZ]|[+-]\d{2}:\d{2}$/.test(timestamp)) return timestamp;
+  return `${timestamp.replace(" ", "T")}-10:00`;
+}
+
+function formatHawaiiDate(date: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Pacific/Honolulu",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}${values.month}${values.day}`;
+}
+
+function createUnavailableCurrentObservation(stationId?: string, error?: unknown): CurrentObservation {
+  return {
+    stationId: stationId ?? "no-live-current-station",
+    stationName: "No active Maui current sensor configured",
+    speedKt: null,
+    directionDeg: null,
+    directionCardinal: null,
+    trend: "unknown",
+    source: {
+      source: "NOAA CO-OPS currents",
+      status: "missing",
+      stationId: stationId && !stationId.startsWith("mock-") ? stationId : undefined,
+      sourceUrl: "https://tidesandcurrents.noaa.gov/currents_info.html",
+      fetchedAt: new Date().toISOString(),
+      error: error instanceof Error ? error.message : error ? "Unknown CO-OPS currents error" : undefined,
+    },
   };
 }
 
@@ -204,6 +277,18 @@ function inferTideTrend(levels: CoopsWaterLevel[]): TideTrend {
   const delta = latest - previous;
   if (Math.abs(delta) < 0.02) return "slack";
   return delta > 0 ? "rising" : "falling";
+}
+
+function inferPredictionTrend(events: TideEvent[]): TideTrend {
+  const next = events.find((event) => new Date(event.time).getTime() >= Date.now());
+  if (!next) return "unknown";
+  return next.type === "high" ? "rising" : "falling";
+}
+
+function getCoopsStationUrl(stationId: string) {
+  return stationId.startsWith("TPT")
+    ? `https://tidesandcurrents.noaa.gov/noaatidepredictions.html?id=${stationId}`
+    : `https://tidesandcurrents.noaa.gov/stationhome.html?id=${stationId}`;
 }
 
 function minutesBetween(start: string, end: string): number {

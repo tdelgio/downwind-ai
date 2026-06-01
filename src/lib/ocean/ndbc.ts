@@ -7,6 +7,7 @@ const NDBC_SPECTRAL_TIMEOUT_MS = 3000;
 
 interface NdbcParsedRow {
   observedAt: string;
+  waveObservedAt: string | null;
   windDirectionDeg: number | null;
   windSpeedKt: number | null;
   gustKt: number | null;
@@ -63,13 +64,14 @@ export async function getNdbcObservations(stationId: string): Promise<{
       throw new Error(`NDBC ${stationId} had no parseable realtime rows`);
     }
 
+    const swellSource = createSource("NDBC realtime waves", "live", stationId, fetchedAt, row.waveObservedAt ?? row.observedAt);
     const swell: SwellObservation = {
       heightFt: row.waveHeightFt,
       dominantPeriodSec: row.dominantPeriodSec,
       directionDeg: row.meanWaveDirectionDeg,
       directionCardinal: degreesToCardinal(row.meanWaveDirectionDeg),
       waterTempF: row.waterTempF,
-      source,
+      source: swellSource,
     };
     const spectral = await getNdbcSpectralPartitions(stationId, swell);
 
@@ -141,20 +143,25 @@ export function parseLatestNdbcRow(text: string): NdbcParsedRow | null {
   const latest = rows[0];
   if (!latest || latest.length < 9) return null;
 
-  const [year, month, day, hour, minute, wdir, wspd, gst, wvht, dpd] = latest;
-  const mwd = latest[11];
-  const wtmp = latest[14];
+  const waveRow = rows.find((row) => numberOrNull(row[8]) !== null) ?? latest;
+  const waterTempRow = rows.find((row) => numberOrNull(row[15]) !== null) ?? latest;
 
   return {
-    observedAt: `${year}-${month}-${day}T${hour}:${minute}:00Z`,
-    windDirectionDeg: numberOrNull(wdir),
-    windSpeedKt: metersPerSecondToKnots(numberOrNull(wspd)),
-    gustKt: metersPerSecondToKnots(numberOrNull(gst)),
-    waveHeightFt: metersToFeet(numberOrNull(wvht)),
-    dominantPeriodSec: numberOrNull(dpd),
-    meanWaveDirectionDeg: numberOrNull(mwd),
-    waterTempF: celsiusToFahrenheit(numberOrNull(wtmp)),
+    observedAt: parseNdbcTimestamp(latest),
+    waveObservedAt: numberOrNull(waveRow[8]) !== null ? parseNdbcTimestamp(waveRow) : null,
+    windDirectionDeg: numberOrNull(latest[5]),
+    windSpeedKt: metersPerSecondToKnots(numberOrNull(latest[6])),
+    gustKt: metersPerSecondToKnots(numberOrNull(latest[7])),
+    waveHeightFt: metersToFeet(numberOrNull(waveRow[8])),
+    dominantPeriodSec: numberOrNull(waveRow[9]),
+    meanWaveDirectionDeg: numberOrNull(waveRow[11]),
+    waterTempF: celsiusToFahrenheit(numberOrNull(waterTempRow[15])),
   };
+}
+
+function parseNdbcTimestamp(row: string[]) {
+  const [year, month, day, hour, minute] = row;
+  return `${year}-${month}-${day}T${hour}:${minute}:00Z`;
 }
 
 export function degreesToCardinal(degrees: number | null): string | null {
@@ -203,6 +210,7 @@ function createSource(source: string, status: SourceMeta["status"], stationId: s
     source,
     status,
     stationId,
+    sourceUrl: `https://www.ndbc.noaa.gov/station_page.php?station=${stationId.toLowerCase()}`,
     fetchedAt,
     observedAt,
     freshnessMinutes: observedAt ? minutesBetween(observedAt, fetchedAt) : undefined,
@@ -215,6 +223,7 @@ function withError<T extends WindObservation | SwellObservation>(observation: T,
     source: {
       ...observation.source,
       stationId,
+      sourceUrl: `https://www.ndbc.noaa.gov/station_page.php?station=${stationId.toLowerCase()}`,
       status: "mock",
       error: error instanceof Error ? error.message : "Unknown NDBC error",
     },
@@ -227,6 +236,7 @@ function withSeaEnergyError(observation: SeaEnergyObservation, stationId: string
     source: {
       ...observation.source,
       stationId,
+      sourceUrl: `https://www.ndbc.noaa.gov/station_page.php?station=${stationId.toLowerCase()}`,
       status: "mock",
       error: error instanceof Error ? error.message : "Unknown NDBC spectral error",
     },

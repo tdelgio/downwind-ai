@@ -8,6 +8,7 @@ export interface SourceMeta {
   source: string;
   status: DataSourceStatus;
   stationId?: string;
+  sourceUrl?: string;
   fetchedAt: string;
   observedAt?: string;
   freshnessMinutes?: number;
@@ -172,12 +173,14 @@ export interface OceanConditionSnapshot {
   groundswell: SeaEnergyObservation;
   bumpEnergy: SeaEnergyObservation;
   tide: TideObservation;
+  shoreTides: Record<MauiShoreId, TideObservation>;
   current: CurrentObservation;
   shoreObservations: Record<MauiShoreId, ShoreOceanObservations>;
   offshoreObservations: Record<OffshoreBuoyId, OffshoreBuoyObservation>;
   coastalWinds: CoastalWindObservation[];
   harborWinds: HarborWindObservation[];
   forecastWindows: ForecastWindow[];
+  shoreForecastWindows: Record<MauiShoreId, ForecastWindow[]>;
   alerts: WeatherAlert[];
   sources: SourceMeta[];
 }

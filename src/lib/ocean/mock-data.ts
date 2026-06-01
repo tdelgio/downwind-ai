@@ -34,8 +34,7 @@ export const malikoNorthShoreRoute: RouteConfig = {
     finishWindStationId: "KLIH1",
     // Kahului Harbor is the initial nearby CO-OPS tide station placeholder.
     tideStationId: "1615680",
-    // Configure a real NOAA CO-OPS current station/bin once selected for Maui channels/harbors.
-    currentStationId: "mock-current-maui",
+    // Configure an active NOAA CO-OPS current station/bin only after verifying live availability.
     nwsPoint: { latitude: 20.941, longitude: -156.284 },
   },
 };
@@ -256,15 +255,11 @@ export const mockOffshoreObservations: Record<"lanai-offshore" | "open-ocean-nw"
 export const mockTideObservation: TideObservation = {
   stationId: "1615680",
   stationName: "Kahului, Kahului Harbor, HI",
-  currentWaterLevelFt: 1.1,
-  trend: "falling",
-  nextHigh: { time: "2026-05-21T13:42:00-10:00", heightFt: 1.8, type: "high" },
-  nextLow: { time: "2026-05-21T19:56:00-10:00", heightFt: 0.5, type: "low" },
-  predictions: [
-    { time: "2026-05-21T07:18:00-10:00", heightFt: 0.3, type: "low" },
-    { time: "2026-05-21T13:42:00-10:00", heightFt: 1.8, type: "high" },
-    { time: "2026-05-21T19:56:00-10:00", heightFt: 0.5, type: "low" },
-  ],
+  currentWaterLevelFt: null,
+  trend: "unknown",
+  nextHigh: null,
+  nextLow: null,
+  predictions: [],
   source: {
     source: "Mock NOAA CO-OPS 1615680",
     status: "mock",
@@ -276,19 +271,17 @@ export const mockTideObservation: TideObservation = {
 };
 
 export const mockCurrentObservation: CurrentObservation = {
-  stationId: "mock-current-maui",
-  stationName: "Maui current layer placeholder",
-  speedKt: 0.8,
-  directionDeg: 285,
-  directionCardinal: "W",
-  trend: "ebb",
+  stationId: "no-live-current-station",
+  stationName: "No active Maui current sensor configured",
+  speedKt: null,
+  directionDeg: null,
+  directionCardinal: null,
+  trend: "unknown",
   source: {
-    source: "Mock NOAA CO-OPS currents",
-    status: "mock",
-    stationId: "mock-current-maui",
+    source: "NOAA CO-OPS currents",
+    status: "missing",
+    sourceUrl: "https://tidesandcurrents.noaa.gov/currents_info.html",
     fetchedAt: now,
-    observedAt: now,
-    freshnessMinutes: 0,
   },
 };
 
@@ -411,6 +404,31 @@ export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRou
     groundswell: mockGroundswellObservation,
     bumpEnergy: mockBumpEnergyObservation,
     tide: mockTideObservation,
+    shoreTides: {
+      north: mockTideObservation,
+      south: {
+        ...mockTideObservation,
+        stationId: "TPT2797",
+        stationName: "Kihei, Maalaea Bay",
+        currentWaterLevelFt: null,
+        source: {
+          ...mockTideObservation.source,
+          source: "Mock NOAA tide prediction · Kihei",
+          stationId: "TPT2797",
+        },
+      },
+      west: {
+        ...mockTideObservation,
+        stationId: "TPT2799",
+        stationName: "Lahaina",
+        currentWaterLevelFt: null,
+        source: {
+          ...mockTideObservation.source,
+          source: "Mock NOAA tide prediction · Lahaina",
+          stationId: "TPT2799",
+        },
+      },
+    },
     current: mockCurrentObservation,
     shoreObservations: {
       ...mockShoreObservations,
@@ -427,6 +445,11 @@ export function createMockOceanSnapshot(route: RouteConfig = malikoNorthShoreRou
     coastalWinds: mockCoastalWinds,
     harborWinds: mockHarborWinds,
     forecastWindows: mockForecastWindows,
+    shoreForecastWindows: {
+      north: mockForecastWindows,
+      south: mockForecastWindows,
+      west: mockForecastWindows,
+    },
     alerts: [],
     sources: [
       mockWindObservation.source,

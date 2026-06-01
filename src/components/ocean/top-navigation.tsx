@@ -27,7 +27,7 @@ export function TopNavigation({
         </Link>
         <ThemeToggle compact />
       </div>
-      <nav className="mx-auto mt-4 flex w-full max-w-6xl items-center gap-4 overflow-x-auto border-b border-[#094c60]/12 pb-1 dark:border-white/12">
+      <nav className="mx-auto mt-4 flex w-full max-w-6xl items-center justify-evenly gap-2 overflow-x-auto border-b border-[#094c60]/12 pb-1 dark:border-white/12">
         {navItems.map((item) => (
           <Link
             key={item.href}

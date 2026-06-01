@@ -44,6 +44,7 @@ export async function getNwsForecastWindows(point: GeoPoint): Promise<ForecastWi
     const source: SourceMeta = {
       source: "NWS hourly forecast",
       status: "live",
+      sourceUrl: getNwsPointForecastUrl(point),
       fetchedAt,
       observedAt: json.properties?.updated,
       freshnessMinutes: json.properties?.updated ? minutesBetween(json.properties.updated, fetchedAt) : undefined,
@@ -111,6 +112,7 @@ export async function getNwsCurrentWindObservation(point: GeoPoint, label: strin
       source: {
         ...current.source,
         source: `NWS hourly forecast proxy · ${label}`,
+        sourceUrl: getNwsPointForecastUrl(point),
       },
     };
   } catch (error) {
@@ -122,6 +124,7 @@ export async function getNwsCurrentWindObservation(point: GeoPoint, label: strin
       source: {
         source: `NWS hourly forecast proxy · ${label}`,
         status: "missing",
+        sourceUrl: getNwsPointForecastUrl(point),
         fetchedAt: new Date().toISOString(),
         error: error instanceof Error ? error.message : "Unknown NWS harbor wind error",
       },
@@ -188,6 +191,10 @@ function cardinalToDegrees(value: string): number | null {
     NNW: 338,
   };
   return map[normalized] ?? null;
+}
+
+function getNwsPointForecastUrl(point: GeoPoint) {
+  return `https://forecast.weather.gov/MapClick.php?lat=${point.latitude}&lon=${point.longitude}`;
 }
 
 function minutesBetween(start: string, end: string): number {
