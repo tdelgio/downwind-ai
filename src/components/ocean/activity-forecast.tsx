@@ -573,8 +573,8 @@ function RunWindCard({ shore, points }: { shore: Shore; points: RunWindPoint[] }
   return (
     <section className="mb-4 max-w-full rounded-2xl border border-[#094c60]/14 bg-white p-3 shadow-[0_10px_24px_rgba(7,35,45,0.06)] dark:border-white/12 dark:bg-[#091d2b]">
       <h3 className="text-xl font-semibold text-[#102b3a] dark:text-[#f4fbff]">{shore === "north" ? "Maliko Run" : "Maalaea / Kihei Run"}</h3>
-      <div className="mt-2 overflow-x-auto rounded-xl border border-[#094c60]/14 bg-[#fbfaf6] dark:border-white/12 dark:bg-[#071d2a]">
-        <div className={`flex items-stretch ${points.length === 3 ? "min-w-[23rem]" : "min-w-[15rem]"}`}>
+      <div className="mt-2 overflow-hidden rounded-xl border border-[#094c60]/14 bg-[#fbfaf6] dark:border-white/12 dark:bg-[#071d2a]">
+        <div className="flex items-stretch">
           {points.map((point, index) => {
             const tone = getWindToneClasses(getWindToneFromText(point.wind.speed, point.wind.gust));
             return (
@@ -585,9 +585,9 @@ function RunWindCard({ shore, points }: { shore: Shore; points: RunWindPoint[] }
                     aria-hidden
                   />
                 ) : null}
-                <div className="min-w-[6.5rem] flex-1 px-2 py-2.5">
-                  <div className="flex min-h-7 items-center gap-1.5">
-                    <p className="text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.08em] text-[#30444c] dark:text-[#d8e7ec]">
+                <div className="min-w-0 flex-1 px-1.5 py-2.5 sm:px-2">
+                  <div className="flex min-h-7 items-center gap-1">
+                    <p className="text-[0.62rem] font-semibold uppercase leading-4 tracking-[0.06em] text-[#30444c] dark:text-[#d8e7ec] sm:text-[0.68rem] sm:tracking-[0.08em]">
                       {point.label}
                     </p>
                     <RunSourceDisclosure source={point.source} />
