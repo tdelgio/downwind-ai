@@ -42,12 +42,13 @@ export async function getCoopsTideObservation(stationId: string): Promise<TideOb
     };
     const events = predictions.map(parsePrediction).filter((event): event is TideEvent => Boolean(event));
     const currentWaterLevelFt = waterLevels.at(-1)?.v ? Number(waterLevels.at(-1)!.v) : null;
+    const observedTrend = inferTideTrend(waterLevels);
 
     return {
       stationId,
       stationName: metadata?.name ?? stationId,
       currentWaterLevelFt: Number.isFinite(currentWaterLevelFt) ? currentWaterLevelFt : null,
-      trend: inferTideTrend(waterLevels),
+      trend: observedTrend === "unknown" ? inferPredictionTrend(events) : observedTrend,
       nextHigh: findNextEvent(events, "high"),
       nextLow: findNextEvent(events, "low"),
       predictions: events,

@@ -95,7 +95,7 @@ export function RunSourcePopover({
       <button
         ref={buttonRef}
         type="button"
-        className="grid size-6 shrink-0 place-items-center rounded-full bg-[#0d5968] text-white shadow-[0_4px_10px_rgba(13,89,104,0.18)] transition hover:bg-[#094c60] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0d5968] dark:bg-[#2c9bb0] dark:text-[#071723] dark:hover:bg-[#5be7ff]"
+        className="grid size-6 shrink-0 place-items-center rounded-full text-[#7c9098] transition hover:bg-[#e8f0f1] hover:text-[#0d5968] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0d5968] dark:text-[#8fa8b1] dark:hover:bg-[#102a3a] dark:hover:text-[#9debf9]"
         aria-expanded={isOpen}
         aria-label={`Show source for ${sourceName}`}
         title={`Source: ${sourceName}`}

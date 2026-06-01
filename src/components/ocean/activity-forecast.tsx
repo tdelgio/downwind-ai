@@ -193,9 +193,9 @@ export function HomeForecastOverview({
           <LiveWindCard wind={wind} source={shoreOcean.wind.source} />
           <LiveSeaInlineCard shoreOcean={shoreOcean} />
         </div>
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className={`mt-4 grid gap-4 ${selectedShore === "north" ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
           <TideCard tide={snapshot.shoreTides[selectedShore]} />
-          <CurrentCard current={snapshot.shoreCurrents[selectedShore]} />
+          {selectedShore === "north" ? null : <CurrentCard current={snapshot.shoreCurrents[selectedShore]} />}
           <RainRiskCard windows={snapshot.shoreForecastWindows[selectedShore]} />
         </div>
       </section>
@@ -584,8 +584,8 @@ function RunWindCard({ shore, points }: { shore: Shore; points: RunWindPoint[] }
                   />
                 ) : null}
                 <div className="min-w-[6.5rem] flex-1 px-2 py-2.5">
-                  <div className="flex min-h-7 items-start justify-between gap-1">
-                    <p className="-ml-1 text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.08em] text-[#30444c] dark:text-[#d8e7ec]">
+                  <div className="flex min-h-7 items-center justify-between gap-1">
+                    <p className="text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.08em] text-[#30444c] dark:text-[#d8e7ec]">
                       {point.label}
                     </p>
                     <RunSourceDisclosure source={point.source} />
@@ -1435,7 +1435,7 @@ function buildMalikoRunPoints(snapshot: OceanConditionSnapshot): RunWindPoint[] 
       source: kanahaWind?.source ?? estimateSource("Kanaha coastal estimate", shoreOcean.wind.source),
     },
     {
-      label: "Kahului Harbor",
+      label: "Harbor",
       wind: harborWind ? windObservationToDisplay(harborWind) : { direction: "Harbor data unavailable", speed: "-", gust: "-", degrees: 68, isSample: true },
       source: harborWind?.source ?? estimateSource("Inside harbor unavailable", shoreOcean.wind.source),
     },
