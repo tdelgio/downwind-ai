@@ -149,6 +149,8 @@ export function HomeForecastOverview({
   const shores: Shore[] = ["north", "south", "west"];
   const shore = getShoreConfig(selectedShore);
   const shoreOcean = getShoreOcean(snapshot, selectedShore);
+  const current = snapshot.shoreCurrents[selectedShore];
+  const hasCurrent = current.speedKt !== null;
   const wind = windObservationToDisplayWithFallback(shoreOcean.wind, getZoneWindFallback(shore.zone));
 
   return (
@@ -193,9 +195,9 @@ export function HomeForecastOverview({
           <LiveWindCard wind={wind} source={shoreOcean.wind.source} />
           <LiveSeaInlineCard shoreOcean={shoreOcean} />
         </div>
-        <div className={`mt-4 grid gap-4 ${selectedShore === "north" ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>
+        <div className={`mt-4 grid gap-4 ${hasCurrent ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
           <TideCard tide={snapshot.shoreTides[selectedShore]} />
-          {selectedShore === "north" ? null : <CurrentCard current={snapshot.shoreCurrents[selectedShore]} />}
+          {hasCurrent ? <CurrentCard current={current} /> : null}
           <RainRiskCard windows={snapshot.shoreForecastWindows[selectedShore]} />
         </div>
       </section>
@@ -584,7 +586,7 @@ function RunWindCard({ shore, points }: { shore: Shore; points: RunWindPoint[] }
                   />
                 ) : null}
                 <div className="min-w-[6.5rem] flex-1 px-2 py-2.5">
-                  <div className="flex min-h-7 items-center justify-between gap-1">
+                  <div className="flex min-h-7 items-center gap-1.5">
                     <p className="text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.08em] text-[#30444c] dark:text-[#d8e7ec]">
                       {point.label}
                     </p>
