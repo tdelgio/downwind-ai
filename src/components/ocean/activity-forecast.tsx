@@ -574,34 +574,32 @@ function RunWindCard({ shore, points }: { shore: Shore; points: RunWindPoint[] }
     <section className="mb-4 max-w-full rounded-2xl border border-[#094c60]/14 bg-white p-3 shadow-[0_10px_24px_rgba(7,35,45,0.06)] dark:border-white/12 dark:bg-[#091d2b]">
       <h3 className="text-xl font-semibold text-[#102b3a] dark:text-[#f4fbff]">{shore === "north" ? "North Shore Run" : "Maalaea / Kihei Run"}</h3>
       <div className="mt-2 overflow-hidden rounded-xl border border-[#094c60]/14 bg-[#fbfaf6] dark:border-white/12 dark:bg-[#071d2a]">
-        <div className="flex items-stretch">
+        <div
+          className="grid items-stretch"
+          style={{ gridTemplateColumns: `repeat(${points.length}, minmax(0, 1fr))` }}
+        >
           {points.map((point, index) => {
             const tone = getWindToneClasses(getWindToneFromText(point.wind.speed, point.wind.gust));
             return (
-              <div key={point.label} className="contents">
-                {index > 0 ? (
-                  <div
-                    className="my-2.5 w-px shrink-0 bg-[#094c60]/16 dark:bg-white/16"
-                    aria-hidden
-                  />
-                ) : null}
-                <div className="min-w-0 flex-1 px-1.5 py-2.5 sm:px-2">
-                  <div className="flex min-h-7 items-center gap-1">
-                    <p className="text-[0.62rem] font-semibold uppercase leading-4 tracking-[0.06em] text-[#30444c] dark:text-[#d8e7ec] sm:text-[0.68rem] sm:tracking-[0.08em]">
+              <div
+                key={point.label}
+                className={`min-w-0 px-1.5 py-3 sm:px-2 ${index > 0 ? "border-l border-[#094c60]/16 dark:border-white/16" : ""}`}
+              >
+                <div className="mx-auto grid w-fit min-w-0 grid-cols-[1.75rem_minmax(0,1fr)] items-center gap-x-1.5">
+                  <div className="col-start-2 flex min-h-7 items-center gap-1">
+                    <p className="text-[0.68rem] font-semibold uppercase leading-4 tracking-[0.06em] text-[#30444c] dark:text-[#d8e7ec] sm:text-[0.74rem] sm:tracking-[0.08em]">
                       {point.label}
                     </p>
                     <RunSourceDisclosure source={point.source} />
                   </div>
-                  <div className="mt-1 flex items-center gap-1">
-                    <WindArrow degrees={point.wind.degrees} compact className="text-[#17242c] dark:text-[#e8f4f7]" />
-                    <div className="min-w-0">
-                      <p className="weather-data whitespace-nowrap text-xl leading-none text-[#17242c] dark:text-[#f4fbff]">
-                        {point.wind.direction}
-                      </p>
-                      <p className={`weather-data mt-0.5 whitespace-nowrap text-base leading-none ${tone.speedText}`}>
-                        {point.wind.speed}
-                      </p>
-                    </div>
+                  <WindArrow degrees={point.wind.degrees} compact className="text-[#17242c] dark:text-[#e8f4f7]" />
+                  <div className="min-w-0">
+                    <p className="weather-data whitespace-nowrap text-xl leading-none text-[#17242c] dark:text-[#f4fbff]">
+                      {point.wind.direction}
+                    </p>
+                    <p className={`weather-data mt-0.5 whitespace-nowrap text-base leading-none ${tone.speedText}`}>
+                      {point.wind.speed}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1122,6 +1120,8 @@ function SourceFreshnessBadge({
   const statusLabel =
     source.status === "live"
       ? freshness
+      : source.source.includes("MFM forecast")
+        ? `Forecast · ${freshness}`
       : source.status === "missing" || source.status === "error"
         ? "No live data"
         : source.source.includes("current prediction")
@@ -1158,6 +1158,8 @@ function getSourceDisplayName(source: SourceLike) {
   if (source.stationId === "51205") return "Pauwela";
   if (source.stationId === "51213") return "Lanai Offshore";
   if (source.stationId === "51001") return "Open Ocean NW";
+  if (source.stationId?.toLowerCase() === "51wh0") return "WHOTS Offshore North";
+  if (source.stationId === "DD-FAD") return "DD FAD / Opana Point";
   if (source.stationId === "KLIH1") return "Kahului";
   if (source.stationId === "1615680") return "Kahului tide";
   if (source.stationId === "TPT2797") return "Kihei tide";
@@ -1358,7 +1360,7 @@ function windObservationToDisplayWithFallback(
   wind: ShoreOceanObservations["wind"],
   fallback: Omit<WindDisplay, "isSample">,
 ): WindDisplay {
-  if (wind.speedKt === null || wind.source.status !== "live") {
+  if (wind.speedKt === null || (wind.source.status !== "live" && !wind.source.source.includes("MFM forecast"))) {
     return {
       direction: "-",
       speed: "No live wind",

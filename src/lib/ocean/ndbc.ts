@@ -1,7 +1,9 @@
-import { mockBumpEnergyObservation, mockGroundswellObservation, mockSwellObservation, mockWindObservation } from "./mock-data";
+import { mockBumpEnergyObservation, mockGroundswellObservation, mockSwellObservation } from "./mock-data";
 import type { SeaEnergyObservation, SourceMeta, SwellObservation, WindObservation } from "./types";
 
 const NDBC_REALTIME_BASE_URL = "https://www.ndbc.noaa.gov/data/realtime2";
+const NDBC_LATEST_OBS_BASE_URL = "https://www.ndbc.noaa.gov/data/latest_obs";
+const NDBC_STATION_PAGE_URL = "https://www.ndbc.noaa.gov/station_page.php";
 const NDBC_FETCH_TIMEOUT_MS = 4500;
 const NDBC_SPECTRAL_TIMEOUT_MS = 3000;
 
@@ -48,6 +50,32 @@ export async function fetchNdbcSpectralText(stationId: string): Promise<string> 
   return response.text();
 }
 
+export async function fetchNdbcStationPageHtml(stationId: string): Promise<string> {
+  const response = await fetch(`${NDBC_STATION_PAGE_URL}?station=${stationId.toLowerCase()}`, {
+    next: { revalidate: 600 },
+    signal: AbortSignal.timeout(NDBC_FETCH_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`NDBC ${stationId} station page request failed with ${response.status}`);
+  }
+
+  return response.text();
+}
+
+export async function fetchNdbcLatestObservationText(stationId: string): Promise<string> {
+  const response = await fetch(`${NDBC_LATEST_OBS_BASE_URL}/${stationId.toLowerCase()}.txt`, {
+    next: { revalidate: 300 },
+    signal: AbortSignal.timeout(NDBC_FETCH_TIMEOUT_MS),
+  });
+
+  if (!response.ok) {
+    throw new Error(`NDBC ${stationId} latest observation request failed with ${response.status}`);
+  }
+
+  return response.text();
+}
+
 export async function getNdbcObservations(stationId: string): Promise<{
   wind: WindObservation;
   swell: SwellObservation;
@@ -59,15 +87,28 @@ export async function getNdbcObservations(stationId: string): Promise<{
     const row = parseLatestNdbcRow(text);
     const fetchedAt = new Date().toISOString();
     if (!row) {
+      const stationPageWind = await getNdbcLatestObservationWind(stationId);
+      if (stationPageWind) {
+        const unavailableRealtimeError = new Error(`NDBC ${stationId} had no parseable realtime wave rows`);
+        return {
+          wind: stationPageWind,
+          swell: withError(mockSwellObservation, stationId, unavailableRealtimeError),
+          bumpEnergy: withSeaEnergyError(mockBumpEnergyObservation, stationId, unavailableRealtimeError),
+          groundswell: withSeaEnergyError(mockGroundswellObservation, stationId, unavailableRealtimeError),
+        };
+      }
       throw new Error(`NDBC ${stationId} had no parseable realtime rows`);
     }
-    const source = createSource(
-      row.windSpeedKt !== null ? "NDBC realtime" : "NDBC realtime wind unavailable",
-      row.windSpeedKt !== null ? "live" : "missing",
-      stationId,
-      fetchedAt,
-      row.observedAt,
-    );
+    const stationPageWind = row.windSpeedKt === null ? await getNdbcLatestObservationWind(stationId) : null;
+    const source =
+      stationPageWind?.source ??
+      createSource(
+        row.windSpeedKt !== null ? "NDBC realtime" : "NDBC realtime wind unavailable",
+        row.windSpeedKt !== null ? "live" : "missing",
+        stationId,
+        fetchedAt,
+        row.observedAt,
+      );
 
     const swellSource = createSource("NDBC realtime waves", "live", stationId, fetchedAt, row.waveObservedAt ?? row.observedAt);
     const swell: SwellObservation = {
@@ -82,10 +123,10 @@ export async function getNdbcObservations(stationId: string): Promise<{
 
     return {
       wind: {
-        speedKt: row.windSpeedKt,
-        gustKt: row.gustKt,
-        directionDeg: row.windDirectionDeg,
-        directionCardinal: degreesToCardinal(row.windDirectionDeg),
+        speedKt: stationPageWind?.speedKt ?? row.windSpeedKt,
+        gustKt: stationPageWind?.gustKt ?? row.gustKt,
+        directionDeg: stationPageWind?.directionDeg ?? row.windDirectionDeg,
+        directionCardinal: stationPageWind?.directionCardinal ?? degreesToCardinal(row.windDirectionDeg),
         source,
       },
       swell,
@@ -93,13 +134,92 @@ export async function getNdbcObservations(stationId: string): Promise<{
       groundswell: spectral.groundswell,
     };
   } catch (error) {
+    const latestObservationWind = await getNdbcLatestObservationWind(stationId);
     return {
-      wind: withError(mockWindObservation, stationId, error),
+      wind: latestObservationWind ?? createUnavailableWindObservation(stationId, error),
       swell: withError(mockSwellObservation, stationId, error),
       bumpEnergy: withSeaEnergyError(mockBumpEnergyObservation, stationId, error),
       groundswell: withSeaEnergyError(mockGroundswellObservation, stationId, error),
     };
   }
+}
+
+async function getNdbcLatestObservationWind(stationId: string): Promise<WindObservation | null> {
+  try {
+    const text = await fetchNdbcLatestObservationText(stationId);
+    return parseNdbcLatestObservationWind(text, stationId);
+  } catch {
+    return getNdbcStationPageWind(stationId);
+  }
+}
+
+export function parseNdbcLatestObservationWind(text: string, stationId: string): WindObservation | null {
+  const wind = text.match(/Wind:\s*([A-Z]+)\s*\((\d+(?:\.\d+)?)°\),\s*(\d+(?:\.\d+)?)\s*kt/i);
+  const observed = text.match(/(\d{4})\s*GMT\s*(\d{2})\/(\d{2})\/(\d{2})/i);
+  if (!wind) return null;
+
+  const fetchedAt = new Date().toISOString();
+  const observedAt = observed ? `20${observed[4]}-${observed[2]}-${observed[3]}T${observed[1]}:00:00Z` : undefined;
+  const directionDeg = Number(wind[2]);
+
+  return {
+    speedKt: Number(wind[3]),
+    gustKt: null,
+    directionDeg,
+    directionCardinal: wind[1].toUpperCase() || degreesToCardinal(directionDeg),
+    source: createSource("NDBC latest observation", "live", stationId, fetchedAt, observedAt),
+  };
+}
+
+async function getNdbcStationPageWind(stationId: string): Promise<WindObservation | null> {
+  try {
+    const html = await fetchNdbcStationPageHtml(stationId);
+    return parseNdbcStationPageWind(html, stationId);
+  } catch {
+    return null;
+  }
+}
+
+function createUnavailableWindObservation(stationId: string, error: unknown): WindObservation {
+  return {
+    speedKt: null,
+    gustKt: null,
+    directionDeg: null,
+    directionCardinal: null,
+    source: {
+      source: "NDBC wind unavailable",
+      status: "missing",
+      stationId,
+      sourceUrl: `${NDBC_STATION_PAGE_URL}?station=${stationId.toLowerCase()}`,
+      fetchedAt: new Date().toISOString(),
+      error: error instanceof Error ? error.message : "Unknown NDBC error",
+    },
+  };
+}
+
+export function parseNdbcStationPageWind(html: string, stationId: string): WindObservation | null {
+  const text = html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ");
+  const direction = text.match(/Wind Direction \(WDIR\):\s*([A-Z]+)\s*\(\s*(\d+(?:\.\d+)?)\s*deg true\s*\)/i);
+  const speed = text.match(/Wind Speed \(WSPD\):\s*(\d+(?:\.\d+)?)\s*kts/i);
+  const gust = text.match(/Wind Gust \(GST\):\s*(\d+(?:\.\d+)?)\s*kts/i);
+  const observed = text.match(/(\d{4})\s*GMT on\s*(\d{2})\/(\d{2})\/(\d{4})/i);
+
+  if (!direction || !speed) return null;
+
+  const fetchedAt = new Date().toISOString();
+  const observedAt = observed ? `${observed[4]}-${observed[2]}-${observed[3]}T${observed[1]}:00:00Z` : undefined;
+  const directionDeg = Number(direction[2]);
+
+  return {
+    speedKt: Number(speed[1]),
+    gustKt: gust ? Number(gust[1]) : null,
+    directionDeg,
+    directionCardinal: direction[1].toUpperCase() || degreesToCardinal(directionDeg),
+    source: createSource("NDBC station recent data", "live", stationId, fetchedAt, observedAt),
+  };
 }
 
 async function getNdbcSpectralPartitions(stationId: string, swell: SwellObservation): Promise<NdbcSpectralPartition> {
