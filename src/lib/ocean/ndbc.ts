@@ -58,11 +58,16 @@ export async function getNdbcObservations(stationId: string): Promise<{
     const text = await fetchNdbcRealtimeText(stationId);
     const row = parseLatestNdbcRow(text);
     const fetchedAt = new Date().toISOString();
-    const source = createSource("NDBC realtime", "live", stationId, fetchedAt, row?.observedAt);
-
     if (!row) {
       throw new Error(`NDBC ${stationId} had no parseable realtime rows`);
     }
+    const source = createSource(
+      row.windSpeedKt !== null ? "NDBC realtime" : "NDBC realtime wind unavailable",
+      row.windSpeedKt !== null ? "live" : "missing",
+      stationId,
+      fetchedAt,
+      row.observedAt,
+    );
 
     const swellSource = createSource("NDBC realtime waves", "live", stationId, fetchedAt, row.waveObservedAt ?? row.observedAt);
     const swell: SwellObservation = {

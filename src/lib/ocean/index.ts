@@ -5,6 +5,7 @@ import { getMauiMarineForecastDays } from "./marine";
 import { createMockOceanSnapshot, malikoNorthShoreRoute } from "./mock-data";
 import { getNdbcObservations } from "./ndbc";
 import { getNwsAlerts, getNwsForecastWindows } from "./nws";
+import { getPacioosSurfaceCurrent } from "./pacioos";
 import { scoreRoute } from "./scoring";
 import type { MauiShoreId, OceanConditionSnapshot, OceanIntelligenceResult, OffshoreBuoyId, OffshoreBuoyObservation, RouteConfig, ShoreOceanObservations } from "./types";
 
@@ -37,6 +38,7 @@ export { getCoopsCurrentPredictionObservation } from "./coops";
 export { getMauiCoastalWinds } from "./coastal";
 export { getMauiHarborWinds } from "./harbors";
 export { getNwsAlerts, getNwsForecastWindows } from "./nws";
+export { getPacioosSurfaceCurrent } from "./pacioos";
 export { scoreRoute } from "./scoring";
 
 const SNAPSHOT_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -85,7 +87,7 @@ export async function getOceanConditionSnapshot(route: RouteConfig = malikoNorth
 
 async function loadOceanConditionSnapshot(route: RouteConfig): Promise<OceanConditionSnapshot> {
   try {
-    const [buoy, southBuoy, openOceanNwBuoy, tide, southTide, westTide, current, southCurrent, westCurrent, coastalWinds, harborWinds, forecastWindows, southForecastWindows, westForecastWindows, marineForecastDays, alerts] = await Promise.all([
+    const [buoy, southBuoy, openOceanNwBuoy, tide, southTide, westTide, current, northSurfaceCurrent, southCurrent, westCurrent, coastalWinds, harborWinds, forecastWindows, southForecastWindows, westForecastWindows, marineForecastDays, alerts] = await Promise.all([
       getNdbcObservations(route.stations.primaryBuoyId),
       getNdbcObservations("51213"),
       getNdbcObservations("51001"),
@@ -93,6 +95,7 @@ async function loadOceanConditionSnapshot(route: RouteConfig): Promise<OceanCond
       getCoopsTidePredictionObservation("TPT2797", "Kihei, Maalaea Bay"),
       getCoopsTidePredictionObservation("TPT2799", "Lahaina"),
       getCoopsCurrentObservation(route.stations.currentStationId),
+      getPacioosSurfaceCurrent({ latitude: 21.035, longitude: -156.255 }, "Maliko / North Shore"),
       getCoopsCurrentPredictionObservation("HAI1121_28", "Alalakeiki Channel"),
       getCoopsCurrentPredictionObservation("HAI1119_29", "Auau Channel"),
       getMauiCoastalWinds(),
@@ -104,10 +107,11 @@ async function loadOceanConditionSnapshot(route: RouteConfig): Promise<OceanCond
       getNwsAlerts(route.stations.nwsPoint),
     ]);
     const generatedAt = new Date().toISOString();
+    const kanahaWind = coastalWinds.find((coastal) => coastal.id === "kanaha")?.observation;
     const kiheiWind = coastalWinds.find((coastal) => coastal.id === "kihei")?.observation;
     const lahainaWind = coastalWinds.find((coastal) => coastal.id === "lahaina")?.observation;
     const shoreObservations: Record<MauiShoreId, ShoreOceanObservations> = {
-      north: createShoreObservations("north", "North Shore", route.stations.primaryBuoyId, buoy),
+      north: createShoreObservations("north", "North Shore", route.stations.primaryBuoyId, buoy, kanahaWind),
       south: createShoreObservations("south", "South Side", "51213", southBuoy, kiheiWind),
       west: createShoreObservations("west", "West Side", "51213", southBuoy, lahainaWind),
     };
@@ -143,7 +147,7 @@ async function loadOceanConditionSnapshot(route: RouteConfig): Promise<OceanCond
       },
       current,
       shoreCurrents: {
-        north: current,
+        north: northSurfaceCurrent,
         south: southCurrent,
         west: westCurrent,
       },
@@ -176,6 +180,7 @@ async function loadOceanConditionSnapshot(route: RouteConfig): Promise<OceanCond
         southTide.source,
         westTide.source,
         current.source,
+        northSurfaceCurrent.source,
         southCurrent.source,
         westCurrent.source,
         ...coastalWinds.map((coastal) => coastal.observation.source),

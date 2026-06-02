@@ -572,7 +572,7 @@ type RunWindPoint = {
 function RunWindCard({ shore, points }: { shore: Shore; points: RunWindPoint[] }) {
   return (
     <section className="mb-4 max-w-full rounded-2xl border border-[#094c60]/14 bg-white p-3 shadow-[0_10px_24px_rgba(7,35,45,0.06)] dark:border-white/12 dark:bg-[#091d2b]">
-      <h3 className="text-xl font-semibold text-[#102b3a] dark:text-[#f4fbff]">{shore === "north" ? "Maliko Run" : "Maalaea / Kihei Run"}</h3>
+      <h3 className="text-xl font-semibold text-[#102b3a] dark:text-[#f4fbff]">{shore === "north" ? "North Shore Run" : "Maalaea / Kihei Run"}</h3>
       <div className="mt-2 overflow-hidden rounded-xl border border-[#094c60]/14 bg-[#fbfaf6] dark:border-white/12 dark:bg-[#071d2a]">
         <div className="flex items-stretch">
           {points.map((point, index) => {
@@ -950,7 +950,7 @@ function LiveWindCard({ wind, source }: { wind: WindDisplay; source: SourceLike 
         <SourceFreshnessBadge source={source} compact />
       </div>
       <div className={`mt-4 flex items-center gap-4 rounded-2xl border p-5 ${classes.card}`}>
-        <WindArrow degrees={wind.degrees} large className={classes.text} />
+        {wind.speed === "No live wind" ? null : <WindArrow degrees={wind.degrees} large className={classes.text} />}
         <div>
           <p className={`weather-data text-5xl leading-none tracking-normal ${classes.text}`}>
             {wind.direction}
@@ -963,9 +963,11 @@ function LiveWindCard({ wind, source }: { wind: WindDisplay; source: SourceLike 
           </p>
         </div>
       </div>
-      <p className={`mt-2 text-xs font-medium ${classes.muted}`}>
-        Wind arrow shows flow coming from {wind.direction}.
-      </p>
+      {wind.speed === "No live wind" ? null : (
+        <p className={`mt-2 text-xs font-medium ${classes.muted}`}>
+          Wind arrow shows flow coming from {wind.direction}.
+        </p>
+      )}
     </div>
   );
 }
@@ -1022,20 +1024,19 @@ function LiveSeaInlineCard({
 }
 
 function CurrentCard({ current }: { current: OceanConditionSnapshot["current"] }) {
+  const label = getCurrentCardLabel(current.source);
   return (
     <section className="ocean-card rounded-[1.5rem] border border-blue-800/18 bg-[#dbeafe] p-5 dark:border-blue-200/20 dark:bg-[#0c2940]">
-      <div className="flex flex-col items-start gap-2 sm:flex-row sm:justify-between sm:gap-3">
-        <div className="flex items-center gap-2">
-          <Compass className="size-5 text-blue-700" />
-          <CategoryPill label="Current" tone="tide" />
-        </div>
-        <SourceFreshnessBadge source={current.source} compact />
+      <div className="flex items-center gap-2">
+        <Compass className="size-5 text-blue-700" />
+        <CategoryPill label={label} tone="tide" />
+        <RunSourceDisclosure source={current.source} />
       </div>
       <p className="weather-data mt-5 text-4xl leading-none text-blue-950">
         {formatCurrentObservation(current)}
       </p>
       <p className="mt-3 text-sm capitalize leading-6 text-blue-900/75">
-        {current.trend} · {getCurrentSourceLabel(current.source)}
+        {current.trend === "unknown" ? getCurrentSourceLabel(current.source) : `${current.trend} · ${getCurrentSourceLabel(current.source)}`}
       </p>
     </section>
   );
@@ -1167,6 +1168,7 @@ function getSourceDisplayName(source: SourceLike) {
   if (source.stationId === "PHZ121") return "Alenuihaha";
   if (source.stationId === "HAI1121_28") return "Alalakeiki Channel";
   if (source.stationId === "HAI1119_29") return "Auau Channel";
+  if (source.stationId === "pacioos-roms-maliko") return "PacIOOS ROMS · Maliko";
   if (source.stationId) return source.stationId;
   if (source.source.toLowerCase().includes("mock noaa co-ops currents")) return "Current";
   return getCompactSourceName(source.source);
@@ -1174,11 +1176,18 @@ function getSourceDisplayName(source: SourceLike) {
 
 function getCurrentSourceLabel(source: SourceLike) {
   if (source.status === "live") return getSourceDisplayName(source);
+  if (source.source.includes("PacIOOS")) return "PacIOOS ROMS forecast";
   if (source.source.includes("current prediction") && source.status === "stale") {
     return `${getSourceDisplayName(source)} · NOAA prediction`;
   }
   if (source.status === "missing" || source.status === "error") return "No live current data";
   return "Model estimate";
+}
+
+function getCurrentCardLabel(source: SourceLike) {
+  if (source.source.includes("PacIOOS")) return "Surface Current";
+  if (source.source.includes("current prediction")) return "Tide Flow Estimate";
+  return "Current";
 }
 
 function CategoryPill({
@@ -1324,7 +1333,13 @@ function getWindDisplay(
     snapshot.wind.speedKt === null ||
     snapshot.wind.source.status !== "live"
   ) {
-    return { ...fallback, isSample: true };
+    return {
+      direction: "-",
+      speed: "No live wind",
+      gust: "-",
+      degrees: fallback.degrees,
+      isSample: true,
+    };
   }
 
   return {
@@ -1333,7 +1348,7 @@ function getWindDisplay(
     gust:
       snapshot.wind.gustKt !== null
         ? `${snapshot.wind.gustKt} kt`
-        : fallback.gust,
+        : "-",
     degrees: snapshot.wind.directionDeg ?? fallback.degrees,
     isSample: false,
   };
@@ -1343,14 +1358,20 @@ function windObservationToDisplayWithFallback(
   wind: ShoreOceanObservations["wind"],
   fallback: Omit<WindDisplay, "isSample">,
 ): WindDisplay {
-  if (wind.speedKt === null) {
-    return { ...fallback, isSample: true };
+  if (wind.speedKt === null || wind.source.status !== "live") {
+    return {
+      direction: "-",
+      speed: "No live wind",
+      gust: "-",
+      degrees: fallback.degrees,
+      isSample: true,
+    };
   }
 
   return {
     direction: wind.directionCardinal ?? fallback.direction,
     speed: `${wind.speedKt} kt`,
-    gust: wind.gustKt !== null ? `${wind.gustKt} kt` : fallback.gust,
+    gust: wind.gustKt !== null ? `${wind.gustKt} kt` : "-",
     degrees: wind.directionDeg ?? fallback.degrees,
     isSample: wind.source.status !== "live",
   };
@@ -1426,11 +1447,6 @@ function buildMalikoRunPoints(snapshot: OceanConditionSnapshot): RunWindPoint[] 
   const kanahaWind = snapshot.coastalWinds.find((coastal) => coastal.id === "kanaha")?.observation;
   const harborWind = snapshot.harborWinds.find((harbor) => harbor.id === "kahului-harbor")?.observation;
   return [
-    {
-      label: "Maliko",
-      wind: windObservationToDisplayWithFallback(shoreOcean.wind, { direction: "ENE", speed: "18-24 kt", gust: "30 kt", degrees: 68 }),
-      source: shoreOcean.wind.source,
-    },
     {
       label: "Kanaha",
       wind: kanahaWind ? windObservationToDisplay(kanahaWind) : estimateCorridorWind(shoreOcean.wind, 0.82, "ENE", 68),
